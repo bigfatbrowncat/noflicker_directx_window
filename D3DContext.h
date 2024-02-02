@@ -10,7 +10,6 @@
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
 
-
 /// <summary>
 /// Crash if hr != S_OK.
 /// </summary>

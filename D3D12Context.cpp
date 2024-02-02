@@ -15,7 +15,7 @@
 #pragma comment(lib, "dxguid.lib")
 #endif
 
-struct Vertex { float x, y; };
+struct Vertex { float x, y, z, r, g, b, a; };
 
 void D3DContext::DrawTriangle(int width, int height,
                    ID3D12Device* device,
@@ -24,9 +24,9 @@ void D3DContext::DrawTriangle(int width, int height,
                    IDXGISwapChain3* swap_chain, FrameContext* frameCtx) {
 
     std::vector<Vertex> vertices = {
-            { 0.0f, 0.5f},
-            { 0.5f,-0.5f},
-            {-0.5f, -0.5f}
+            { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
+            { 0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f },
+            {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f }
     };
 
     D3D12_HEAP_PROPERTIES heap_props = {
@@ -72,30 +72,39 @@ void D3DContext::DrawTriangle(int width, int height,
     ID3DBlob *ps, *ps_error;
 
     //HRESULT hr = D3DCompileFromFile(L"D:\\Devel\\Projects\\sdl2-d3d9-dcomp\\PixelShader.hlsl", NULL, NULL, "main", "ps_4_0", D3DCOMPILE_DEBUG, 0, &result_blob, &error_blob);
-    std::string pixel_shader_code = std::string(
-            "float4 main() : SV_Target\n"
-            "{\n"
-            "    return float4(0.0f, 1.0f, 0.0f, 1.0f);\n"
-            "}");
+    std::string shader_code = std::string(
+            "struct PSInput {\n"
+            "	float4 position : SV_POSITION;\n"
+            "	float4 color : COLOR;\n"
+            "};\n"
+            "PSInput VSMain(float4 position : POSITION0, float4 color : COLOR0) {\n"
+            "	PSInput result;\n"
+            "	result.position = position;\n"
+            "	result.color = color;\n"
+            "	return result;\n"
+            "}\n"
+            "float4 PSMain(PSInput input) : SV_TARGET {\n"
+            "	return input.color;\n"
+            "}\n");
 
-    hr_check(D3DCompile2(pixel_shader_code.c_str(), pixel_shader_code.length(),
+    hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
                          nullptr,
-                         NULL, NULL, "main", "ps_4_0", D3DCOMPILE_DEBUG, 0,
+                         NULL, NULL, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
                          0, nullptr, 0,
                          &ps, &ps_error));
 
     //device->CreatePixelShader(result_blob->GetBufferPointer(), result_blob->GetBufferSize(), nullptr, &pixel_shader);
     //device_context->PSSetShader(pixel_shader, nullptr, 0);
+//
+//    std::string vertex_shader_code = std::string(
+//            "float4 main(float2 pos : Position) : SV_Position\n"
+//            "{\n"
+//            "    return float4(pos.x, pos.y, 0.0f, 1.0f);\n"
+//            "}");
 
-    std::string vertex_shader_code = std::string(
-            "float4 main(float2 pos : Position) : SV_Position\n"
-            "{\n"
-            "    return float4(pos.x, pos.y, 0.0f, 1.0f);\n"
-            "}");
-
-    hr_check(D3DCompile2(vertex_shader_code.c_str(), vertex_shader_code.length(),
+    hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
                          nullptr,
-                         NULL, NULL, "main", "vs_4_0", D3DCOMPILE_DEBUG, 0,
+                         NULL, NULL, "VSMain", "vs_4_0", D3DCOMPILE_DEBUG, 0,
                          0, nullptr,  0,
                          &vs, &vs_error));
 
@@ -115,16 +124,22 @@ void D3DContext::DrawTriangle(int width, int height,
 //            },
 //    };
 
+//    D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
+//    {
+//         {"Position",
+//             0,
+//             DXGI_FORMAT_R32G32_FLOAT,
+//             0,
+//             0,
+//             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+//             0
+//         }
+//    };
+
     D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
     {
-         {"Position",
-             0,
-             DXGI_FORMAT_R32G32_FLOAT,
-             0,
-             0,
-             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-             0
-         }
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     //UINT vertexFormat_count = 1;
