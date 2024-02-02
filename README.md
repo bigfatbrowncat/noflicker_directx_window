@@ -1,11 +1,9 @@
-# Non flickering Direct3D 11/12 window POC
-This application is originated from a solution posted on gamedev.net by the user named [jbatez](https://www.gamedev.net/jbatez):
+# A Never Flickering Direct3D 11/12 Window POC
+This application is originated from a [solution posted on gamedev.net](https://www.gamedev.net/forums/topic/708865-dxgi-flip-model-flickering-during-live-resize/) by the user named [jbatez](https://www.gamedev.net/jbatez):
 
-https://www.gamedev.net/forums/topic/708865-dxgi-flip-model-flickering-during-live-resize/
-![Alt Text](res/resize_demo.gif)
+<img src="res/resize_demo.gif" style="float: right; width: 320pt" />
 
-
-Cite:
+The original annotation:
 >For years now I've had this annoying little problem where the right and bottom edges of windows backed by DXGI flip model swap chains flicker during live window resizing (e.g. when grabbing the bottom right corner of a window and dragging). I've tried dozens if not hundreds of different techniques and today I finally stumbled on one that works!
 >
 >TLDR:
