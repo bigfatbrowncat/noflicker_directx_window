@@ -182,29 +182,7 @@ void D3DContext::resize(unsigned int width, unsigned int height) {
         throw std::logic_error("Device recreation not supported yet");
     }*/
 
-    // Do some minimal rendering to prove this works.
-//    ID3D11Resource* buffer;
-//    ID3D11RenderTargetView* rtv;
-//    FLOAT color[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-//    hr_check(swapChain->GetBuffer(0, IID_PPV_ARGS(&buffer)));
-//    hr_check(device->CreateRenderTargetView(buffer, nullptr, &rtv));
-//    deviceContext->ClearRenderTargetView(rtv, color);
-//
-//    D3D11_VIEWPORT viewport;
-//    viewport.MinDepth = 0;
-//    viewport.MaxDepth = 1;
-//    viewport.TopLeftX = 0;
-//    viewport.TopLeftY = 0;
-//    viewport.Width = width;
-//    viewport.Height = height;
-//    deviceContext->RSSetViewports(1u, &viewport);
-//    deviceContext->OMSetRenderTargets( 1, &rtv, NULL );
-
     draw_triangle(width, height, device, deviceContext,  swapChain);
-
-    //buffer->Release();
-    //rtv->Release();
-
 
     // Discard outstanding queued presents and queue a frame with the new size ASAP.
     hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));
