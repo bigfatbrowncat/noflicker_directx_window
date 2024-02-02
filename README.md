@@ -1,4 +1,3 @@
-<style>table td { border:none; border-collapse:collapse; }</style>
 # A Never Flickering Direct3D 11/12 Window POC
 This application is originated from a [solution posted on gamedev.net](https://www.gamedev.net/forums/topic/708865-dxgi-flip-model-flickering-during-live-resize/) by the user named [jbatez](https://www.gamedev.net/jbatez):
 
@@ -8,8 +7,8 @@ The original annotation:
 <div align="center">
     <table>
      <tr>
-        <td style="width: 50%"><img src="res/resize_demo.gif" style="width: 320pt" /></td>
-        <td><p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. I added some features to it:</p>
+        <td style="width: 50%; border:none; border-collapse:collapse;"><img src="res/resize_demo.gif" style="width: 320pt" /></td>
+        <td style="border:none; border-collapse:collapse;"><p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. I added some features to it:</p>
 
 * The classic "rainbow triangle" render
 * DirectX 12 backend
