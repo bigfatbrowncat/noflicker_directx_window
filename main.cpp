@@ -95,10 +95,19 @@ int WinMain(HINSTANCE hinstance, HINSTANCE, LPSTR, int)
     wc.lpszClassName = TEXT("D3DWindow");
     win32_check(RegisterClass(&wc));
 
+    std::wstring windowTitle = L"A Never Flickering DirectX Window";
+#if defined(USE_DX11)
+    windowTitle += L" [Direct3D 11 backend]";
+#elif defined(USE_DX12)
+    windowTitle += L" [Direct3D 12 backend]";
+#else
+    #error "Either USE_DX11 or USE_DX12 should be chosen"
+#endif
+
     // Create the window. We can use WS_EX_NOREDIRECTIONBITMAP
     // since all our presentation is happening through DirectComposition.
     HWND hwnd = win32_check(CreateWindowEx(
-            WS_EX_NOREDIRECTIONBITMAP, wc.lpszClassName, TEXT("D3D Window"),
+            WS_EX_NOREDIRECTIONBITMAP, wc.lpszClassName, windowTitle.c_str(),
             WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, nullptr, nullptr, hinstance, nullptr));
 
     // The DCompContext creation/destruction is fundamentally asymmetric.

@@ -6,25 +6,16 @@
 
 struct Vertex { float x, y; };
 
-void draw_triangle(int width, int height, ID3D11Device* device,
+void draw_triangle(int width, int height,
+                   ID3D11Device* device,
                    ID3D11DeviceContext* device_context,
-                   //ID3D11RenderTargetView* render_target_view,
                    IDXGISwapChain1* swap_chain) {
-
-    // Rendering here
-    ID3D11Buffer* vertex_buffer;
 
     Vertex vertices[]{
             { 0.0f, 0.5f},
             { 0.5f,-0.5f},
             {-0.5f, -0.5f}
     };
-
-//    float vertex_data_array[] = {
-//            0.0f,  0.5f,  0.0f, // point at top
-//            0.5f, -0.5f,  0.0f, // point at bottom-right
-//            -0.5f, -0.5f,  0.0f, // point at bottom-left
-//    };
 
     D3D11_BUFFER_DESC vb_desc;
     ZeroMemory(&vb_desc, sizeof(vb_desc));
@@ -39,6 +30,7 @@ void draw_triangle(int width, int height, ID3D11Device* device,
     ZeroMemory(&vb_data, sizeof(vb_data));
     vb_data.pSysMem = vertices;
 
+    ID3D11Buffer* vertex_buffer;
     device->CreateBuffer(&vb_desc, &vb_data, &vertex_buffer);
 
     const UINT stride = sizeof(Vertex);
@@ -98,42 +90,38 @@ void draw_triangle(int width, int height, ID3D11Device* device,
 
     device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-//    const float color[] = { 0.5f, 0.0f, 0.0f, 1.0f };
-//    device_context->ClearRenderTargetView(render_target_view, color);
+    D3D11_VIEWPORT viewport;
+    viewport.MinDepth = 0;
+    viewport.MaxDepth = 1;
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+    viewport.Width = width;
+    viewport.Height = height;
+    device_context->RSSetViewports(1u, &viewport);
 
-    // Render target. From now on do fast!
+    // Render to the target
     {
         ID3D11Resource *buffer;
-
         ID3D11RenderTargetView *rtv;
+
         FLOAT color[] = {0.0f, 0.2f, 0.4f, 1.0f};
         hr_check(swap_chain->GetBuffer(0, IID_PPV_ARGS(&buffer)));
         hr_check(device->CreateRenderTargetView(buffer, nullptr, &rtv));
+
+        // After this point and before swapChin->Present(), we should render as fast as possible
         device_context->ClearRenderTargetView(rtv, color);
 
-        D3D11_VIEWPORT viewport;
-        viewport.MinDepth = 0;
-        viewport.MaxDepth = 1;
-        viewport.TopLeftX = 0;
-        viewport.TopLeftY = 0;
-        viewport.Width = width;
-        viewport.Height = height;
-        device_context->RSSetViewports(1u, &viewport);
         device_context->OMSetRenderTargets(1, &rtv, NULL);
-
-
         device_context->Draw(3, 0);
-
-        vertex_buffer->Release();
-        vertex_shader->Release();
-        pixel_shader->Release();
-        input_layout->Release();
 
         buffer->Release();
         rtv->Release();
     }
-    //swap_chain->Present(0u, 0u);
 
+    vertex_buffer->Release();
+    vertex_shader->Release();
+    pixel_shader->Release();
+    input_layout->Release();
 }
 
 

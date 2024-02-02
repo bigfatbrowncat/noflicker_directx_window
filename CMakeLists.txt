@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
+
 set(TARGET noflicker_directx_window)
 project(${TARGET})
 
 # Global flags
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi /MT")   # No idea who removed /Zi flag from the debug conf. Putting it back
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi /MTd")   # No idea who removed /Zi flag from the debug conf. Putting it back
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")   # No idea who removed /Zi flag from the debug conf. Putting it back
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi /MDd")   # No idea who removed /Zi flag from the debug conf. Putting it back
 
 # Demo for DirectX 11
 
@@ -21,7 +21,7 @@ add_executable(${EXE_DX11} WIN32
         DCompContext.cpp)
 
 target_compile_definitions(${EXE_DX11} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE_DX11)
-target_compile_features(${EXE_DX11} PUBLIC cxx_std_17)
+target_compile_features(${EXE_DX11} PUBLIC cxx_std_20)
 target_link_libraries(${EXE_DX11} PUBLIC D3D11 dxgi D3DCompiler Dcomp)
 
 #set_target_properties(${EXE_DX11}
@@ -44,6 +44,6 @@ add_executable(${EXE_DX12} WIN32
         DCompContext.cpp)
 
 target_compile_definitions(${EXE_DX12} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE_DX12)
-target_compile_features(${EXE_DX12} PUBLIC cxx_std_17)
+target_compile_features(${EXE_DX12} PUBLIC cxx_std_20)
 target_link_libraries(${EXE_DX12} PUBLIC D3D12 dxgi D3DCompiler Dcomp)
 

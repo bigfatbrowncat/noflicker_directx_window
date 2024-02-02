@@ -60,7 +60,11 @@ private:
     void WaitForLastSubmittedFrame();
     void FlushGPU();
     FrameContext* WaitForNextFrameResources();
-
+    void DrawTriangle(int width, int height,
+                      ID3D12Device* device,
+                      ID3D12GraphicsCommandList* graphics_command_list,
+                      ID3D12CommandQueue* command_queue,
+                      IDXGISwapChain3* swap_chain, FrameContext* frameCtx);
 public:
 
 #else
