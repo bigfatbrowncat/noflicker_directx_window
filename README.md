@@ -5,10 +5,9 @@ The original annotation:
 >For years now I've had this annoying little problem where the right and bottom edges of windows backed by DXGI flip model swap chains flicker during live window resizing (e.g. when grabbing the bottom right corner of a window and dragging). I've tried dozens if not hundreds of different techniques and today I finally stumbled on one that works!
 
 <div align="center">
-    <table>
-     <tr>
-        <td style="width: 50%; border:none; border-collapse:collapse;"><img src="res/resize_demo.gif" style="width: 320pt" /></td>
-        <td style="border:none; border-collapse:collapse;"><p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. I added some features to it:</p>
+<img src="res/resize_demo.gif" style="width: 320pt" />
+</div>
+<p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. This project adds some features to it:</p>
 
 * The classic "rainbow triangle" render
 * DirectX 12 backend
