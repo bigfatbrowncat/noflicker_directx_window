@@ -147,22 +147,6 @@ void draw_triangle(int width, int height,
 
 
 D3DContext::D3DContext(): device(nullptr), deviceContext(nullptr), swapChain(nullptr) {
-    // Create the DXGI factory.
-    IDXGIFactory2* dxgi;
-    hr_check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)));
-
-	// Looking for an Intel GPU in the system
-	const UINT INTEL_VENDOR_ID = 0x8086;
-	IDXGIAdapter* adapter;
-	for (UINT i = 0; dxgi->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; i++) {
-		DXGI_ADAPTER_DESC desc;
-		hr_check(adapter->GetDesc(&desc));
-		if (desc.VendorId == INTEL_VENDOR_ID) {
-			this->intelAdapter = adapter;
-		}
-	}
-
-
     // Create the D3D device.
     hr_check(D3D11CreateDevice(
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
@@ -180,12 +164,7 @@ D3DContext::D3DContext(): device(nullptr), deviceContext(nullptr), swapChain(nul
     // TODO: Determine if PRESENT_DO_NOT_SEQUENCE is safe to use with SWAP_EFFECT_FLIP_DISCARD.
     scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-    hr_check(dxgi->CreateSwapChainForComposition(device, &scd, nullptr, &swapChain));
-}
-
-static bool checkRECTsIntersect(const RECT& r1, const RECT& r2) {
-	return r1.left < r2.right && r2.left < r1.right &&
-		   r1.top < r2.bottom && r2.top < r1.bottom;
+    hr_check(dxgiFactory->CreateSwapChainForComposition(device, &scd, nullptr, &swapChain));
 }
 
 void D3DContext::reposition(const RECT& position) {
@@ -204,21 +183,7 @@ void D3DContext::reposition(const RECT& position) {
 
     draw_triangle(width, height, device, deviceContext,  swapChain);
 
-	// If there is an Intel adapter in the system, we have to synchronize with it manually,
-	// because we can face flickering instead. No idea, why, but "immediate"
-	// rendering on Intel GPU is still not immediate.
-	if (intelAdapter != nullptr) {
-		IDXGIOutput* intelAdapterOutput;
-		for (UINT i = 0; intelAdapter->EnumOutputs(i, &intelAdapterOutput) != DXGI_ERROR_NOT_FOUND; i++) {
-			DXGI_OUTPUT_DESC outputDesc;
-			hr_check(intelAdapterOutput->GetDesc(&outputDesc));
-			if (checkRECTsIntersect(outputDesc.DesktopCoordinates, position)) {
-				// If our window intersects this output, we have to wait for the output's VBlank
-				hr_check(intelAdapterOutput->WaitForVBlank());
-			}
-			intelAdapterOutput->Release();
-		}
-	}
+	syncIntelGPU(position);
 
     // Discard outstanding queued presents and queue a frame with the new size ASAP.
     hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));

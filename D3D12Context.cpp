@@ -427,6 +427,7 @@ bool D3DContext::CreateDeviceD3D(/*HWND hWnd*/)
         dxgiFactory->Release();
         swapChain->SetMaximumFrameLatency(NUM_BACK_BUFFERS);
         //g_hSwapChainWaitableObject = swapChain->GetFrameLatencyWaitableObject();
+        //g_hSwapChainWaitableObject = swapChain->GetFrameLatencyWaitableObject();
     }
 
     CreateRenderTarget();
@@ -543,7 +544,7 @@ D3DContext::FrameContext* D3DContext::WaitForNextFrameResources()
     return frameCtx;
 }
 
-D3DContext::D3DContext(): device(nullptr), swapChain(nullptr) {
+D3DContext::D3DContext(): device(nullptr), swapChain(nullptr), descriptorHeap(nullptr) {
     bool_check(CreateDeviceD3D());
 }
 
@@ -559,17 +560,19 @@ void D3DContext::reposition(const RECT& position) {
 
     DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain, frameCtx);
 
-    // Discard outstanding queued presents and queue a frame with the new size ASAP.
+	syncIntelGPU(position);
+
+	// Discard outstanding queued presents and queue a frame with the new size ASAP.
     hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));
     //g_pSwapChain->Present(1, 0); // Present with vsync
     //g_pSwapChain->Present(0, 0); // Present without vsync
 
-    UINT64 fenceValue = g_fenceLastSignaledValue + 1;
+	UINT64 fenceValue = g_fenceLastSignaledValue + 1;
     g_pd3dCommandQueue->Signal(g_fence, fenceValue);
     g_fenceLastSignaledValue = fenceValue;
     frameCtx->FenceValue = fenceValue;
 
-    // Wait for a vblank to really make sure our frame with the new size is ready before
+	// Wait for a vblank to really make sure our frame with the new size is ready before
     // the window finishes resizing.
     // TODO: Determine why this is necessary at all. Why isn't one Present() enough?
     // TODO: Determine if there's a way to wait for vblank without calling Present().
