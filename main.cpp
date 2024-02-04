@@ -30,7 +30,7 @@ void updateLayout(int width, int height) {
     // Uncomment this fake resizing load here to see how the app handles it
     // 100ms is a huge time pretty enough to recalculate even a very complicated layout
     //
-    //Sleep(100);
+    // Sleep(100);
 }
 
 
@@ -66,10 +66,7 @@ LRESULT window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
             // member is a RECT with the same meaning as the one lparam points to when wparam is FALSE.
             DefWindowProc(hwnd, message, wparam, lparam);
             if (RECT *rect = (RECT *) lparam; rect->right > rect->left && rect->bottom > rect->top) {
-                UINT width = rect->right - rect->left;
-                UINT height = rect->bottom - rect->top;
-
-                context->resize(width, height);
+                context->reposition(*rect);
             }
             // We're never preserving the client area, so we always return 0.
             return 0;

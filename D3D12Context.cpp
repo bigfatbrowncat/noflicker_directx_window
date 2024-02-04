@@ -547,7 +547,10 @@ D3DContext::D3DContext(): device(nullptr), swapChain(nullptr) {
     bool_check(CreateDeviceD3D());
 }
 
-void D3DContext::resize(unsigned int width, unsigned int height) {
+void D3DContext::reposition(const RECT& position) {
+	unsigned int width = position.right - position.left;
+	unsigned int height = position.bottom - position.top;
+
     CleanupRenderTarget();
     hr_check(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
     CreateRenderTarget();

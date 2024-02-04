@@ -24,6 +24,9 @@ struct D3DContext {
     ID3D11Device *device;
     ID3D11DeviceContext *deviceContext;
     IDXGISwapChain1 *swapChain;
+
+	IDXGIAdapter* intelAdapter;
+
 #elif defined(USE_DX12)
     struct FrameContext
     {
@@ -72,6 +75,6 @@ public:
 
     D3DContext();
     //void bindToWindow(HWND hwnd);
-    void resize(unsigned int width, unsigned int height);
+    void reposition(const RECT& position);
     ~D3DContext();
 };
