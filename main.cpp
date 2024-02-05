@@ -94,9 +94,9 @@ int WinMain(HINSTANCE hinstance, HINSTANCE, LPSTR, int)
 
     std::wstring windowTitle = L"A Never Flickering DirectX Window";
 #if defined(USE_DX11)
-    windowTitle += L" [Direct3D 11 backend]";
+    windowTitle += L" [Direct3D 11]";
 #elif defined(USE_DX12)
-    windowTitle += L" [Direct3D 12 backend]";
+    windowTitle += L" [Direct3D 12]";
 #else
     #error "Either USE_DX11 or USE_DX12 should be chosen"
 #endif
