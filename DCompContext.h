@@ -2,6 +2,7 @@
 
 // Local headers
 #include "D3DContext.h"
+#include "Base.h"
 
 // OS headers
 #include <dcomp.h>
@@ -10,7 +11,7 @@
 // C++ stl
 #include <memory>
 
-struct DCompContext {
+struct DCompContext : public Base {
     IDCompositionDevice* dcomp;
     IDCompositionTarget* target;
     IDCompositionVisual* visual;

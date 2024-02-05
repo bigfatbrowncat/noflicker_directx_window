@@ -10,6 +10,26 @@ bool D3DContextBase::checkRECTContainsPoint(const RECT& r, LONG x, LONG y) {
 		   r.top < y && r.bottom > y;
 }
 
+void D3DContextBase::checkDeviceRemoved(HRESULT hr) {
+    if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+    {
+#ifdef _DEBUG
+        char buff[64] = {};
+        sprintf_s(buff, "Device Lost: Reason code 0x%08X\n",
+                  (hr == DXGI_ERROR_DEVICE_REMOVED) ? device->GetDeviceRemovedReason() : hr);
+        std::cerr << buff << std::endl;
+#endif
+        // If the device was removed for any reason, a new device
+        // and swap chain will need to be created.
+        // TODO HandleDeviceLost();
+    }
+    else
+    {
+        // Any other failed result is a fatal fast-fail
+        hr_check(hr);
+    }
+}
+
 D3DContextBase::D3DContextBase() {
 	// Create the DXGI factory.
 	hr_check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory)));

@@ -525,26 +525,6 @@ D3DContext::D3DContext(): device(nullptr), swapChain(nullptr), descriptorHeap(nu
     bool_check(CreateDeviceD3D());
 }
 
-void D3DContext::checkDeviceRemoved(HRESULT hr) {
-    if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
-    {
-#ifdef _DEBUG
-        char buff[64] = {};
-        sprintf_s(buff, "Device Lost: Reason code 0x%08X\n",
-                  (hr == DXGI_ERROR_DEVICE_REMOVED) ? device->GetDeviceRemovedReason() : hr);
-        std::cerr << buff << std::endl;
-#endif
-        // If the device was removed for any reason, a new device
-        // and swap chain will need to be created.
-        //HandleDeviceLost();
-    }
-    else
-    {
-        // Any other failed result is a fatal fast-fail
-        hr_check(hr);
-    }
-}
-
 void D3DContext::reposition(const RECT& position) {
 	unsigned int width = position.right - position.left;
 	unsigned int height = position.bottom - position.top;
@@ -562,8 +542,6 @@ void D3DContext::reposition(const RECT& position) {
 
 	// Discard outstanding queued presents and queue a frame with the new size ASAP.
     checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
-    //g_pSwapChain->Present(1, 0); // Present with vsync
-    //g_pSwapChain->Present(0, 0); // Present without vsync
 
 	UINT64 fenceValue = g_fenceLastSignaledValue + 1;
     g_pd3dCommandQueue->Signal(g_fence, fenceValue);

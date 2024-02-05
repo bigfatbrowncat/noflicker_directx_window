@@ -9,7 +9,7 @@
 struct Vertex {
     [[maybe_unused]] float x, y, z, r, g, b, a; };      // "Maybe unused" because all the data is passed to the GPU
 
-void draw_triangle(int width, int height,
+void D3DContext::DrawTriangle(int width, int height,
                    ID3D11Device* device,
                    ID3D11DeviceContext* device_context,
                    IDXGISwapChain1* swap_chain) {
@@ -182,7 +182,7 @@ void D3DContext::reposition(const RECT& position) {
         throw std::logic_error("Device recreation not supported yet");
     }*/
 
-    draw_triangle(width, height, device, deviceContext,  swapChain);
+    DrawTriangle(width, height, device, deviceContext,  swapChain);
 
 	syncIntelGPU(position);
 

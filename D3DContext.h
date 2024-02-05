@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Base.h"
+
 #if defined(USE_DX11)
 #include <d3d11.h>
 #include <dxgi1_2.h>
@@ -10,18 +12,9 @@
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
 
-/// <summary>
-/// Crash if hr != S_OK.
-/// </summary>
-static void hr_check(HRESULT hr)
-{
-    if (hr == S_OK) return;
-    while (true) __debugbreak();
-}
-
 // The base class for the Direct3D contexts.
 // Contains common (mostly DXGI) logic between the DirectX versions
-struct D3DContextBase {
+struct D3DContextBase : public Base {
 	IDXGIAdapter* intelAdapter = nullptr;
 	IDXGIFactory2* dxgiFactory = nullptr;
 
@@ -37,7 +30,9 @@ struct D3DContextBase {
 	// This one should be called between the drawing function and the swapChain->Present() call
 	void syncIntelGPU(const RECT& position) const;
 
-	virtual ~D3DContextBase();
+    static void checkDeviceRemoved(HRESULT hr);
+
+    virtual ~D3DContextBase();
 };
 
 // The Direct3D-specific context. Depends on the DirectX version flags
@@ -96,5 +91,9 @@ public:
 
     D3DContext();
     void reposition(const RECT& position);
+    void DrawTriangle(int width, int height,
+                                  ID3D11Device* device,
+                                  ID3D11DeviceContext* device_context,
+                                  IDXGISwapChain1* swap_chain);
     ~D3DContext() override;
 };

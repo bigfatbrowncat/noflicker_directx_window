@@ -14,9 +14,7 @@ std::shared_ptr<D3DContext> context;
 std::shared_ptr<DCompContext> dcompContext;
 bool exitPending;
 
-/// <summary>
-/// Passthrough (t) if truthy. Crash otherwise.
-/// </summary>
+// Passthrough (t) if truthy. Crash otherwise.
 template<class T> T win32_check(T t)
 {
     if (t) return t;
@@ -35,9 +33,7 @@ void updateLayout(int width, int height) {
 
 
 
-/// <summary>
-/// Win32 message handler.
-/// </summary>
+// Win32 message handler.
 LRESULT window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     std::mutex draw_mutex;
@@ -77,9 +73,7 @@ LRESULT window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
     }
 }
 
-/// <summary>
-/// The app entry point.
-/// </summary>
+// The app entry point.
 int WinMain(HINSTANCE hinstance, HINSTANCE, LPSTR, int)
 {
     context = std::make_shared<D3DContext>();
