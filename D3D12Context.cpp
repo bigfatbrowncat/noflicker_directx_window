@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 
 // The debug layer is broken and crashes the app. Don't enable it
 //#ifdef _DEBUG
@@ -15,22 +16,20 @@
 #pragma comment(lib, "dxguid.lib")
 #endif
 
-struct Vertex { float x, y, z, r, g, b, a; };
+struct Vertex {
+    [[maybe_unused]] float x, y, z, r, g, b, a;     // "Maybe unused" because all the data is passed to the GPU
+};
 
-void D3DContext::DrawTriangle(int width, int height,
+ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
                    ID3D12Device* device,
                    ID3D12GraphicsCommandList* graphics_command_list,
                    ID3D12CommandQueue* command_queue,
-                   IDXGISwapChain3* swap_chain, FrameContext* frameCtx) {
+                   IDXGISwapChain3* swap_chain, FrameContext* frameCtx, ID3D12Resource* vertex_buffer) {
 
     std::vector<Vertex> vertices = {
             { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
             { 0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f },
             {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f }
-    };
-
-    D3D12_HEAP_PROPERTIES heap_props = {
-            .Type = D3D12_HEAP_TYPE_UPLOAD
     };
 
     D3D12_RESOURCE_DESC vb_desc = {
@@ -46,21 +45,27 @@ void D3DContext::DrawTriangle(int width, int height,
             .Flags = D3D12_RESOURCE_FLAG_NONE,
     };
 
-    ID3D12Resource* vertex_buffer;
+    if (vertex_buffer == nullptr) {
+        D3D12_HEAP_PROPERTIES heap_props = {
+                .Type = D3D12_HEAP_TYPE_UPLOAD
+        };
 
-    hr_check(device->CreateCommittedResource(
-            &heap_props,
-            D3D12_HEAP_FLAG_NONE,
-            &vb_desc,
-            D3D12_RESOURCE_STATE_GENERIC_READ,
-            nullptr,
-            IID_PPV_ARGS(&vertex_buffer)));
+        hr_check(device->CreateCommittedResource(
+                &heap_props,
+                D3D12_HEAP_FLAG_NONE,
+                &vb_desc,
+                D3D12_RESOURCE_STATE_GENERIC_READ,
+                nullptr,
+                IID_PPV_ARGS(&vertex_buffer)));
+    }
 
-    void* gpu_data = nullptr;
-    D3D12_RANGE read_range = { 0, 0 }; // CPU isn't going to read this data, only write
-    hr_check(vertex_buffer->Map(0, &read_range, &gpu_data));
-    memcpy(gpu_data, &vertices[0], vb_desc.Width);
-    vertex_buffer->Unmap(0, nullptr);
+    {
+        void *gpu_data = nullptr;
+        D3D12_RANGE read_range = {0, 0}; // CPU isn't going to read this data, only write
+        hr_check(vertex_buffer->Map(0, &read_range, &gpu_data));
+        memcpy(gpu_data, &vertices[0], vb_desc.Width);
+        vertex_buffer->Unmap(0, nullptr);
+    }
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {
             .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
@@ -68,183 +73,158 @@ void D3DContext::DrawTriangle(int width, int height,
             .StrideInBytes = sizeof(Vertex)
     };
 
-    ID3DBlob *vs, *vs_error;
-    ID3DBlob *ps, *ps_error;
+    ID3D12PipelineState *pipeline;
+    ID3D12RootSignature *rootSignature;
 
-    //HRESULT hr = D3DCompileFromFile(L"D:\\Devel\\Projects\\sdl2-d3d9-dcomp\\PixelShader.hlsl", NULL, NULL, "main", "ps_4_0", D3DCOMPILE_DEBUG, 0, &result_blob, &error_blob);
-    std::string shader_code = std::string(
-            "struct PSInput {\n"
-            "	float4 position : SV_POSITION;\n"
-            "	float4 color : COLOR;\n"
-            "};\n"
-            "PSInput VSMain(float4 position : POSITION0, float4 color : COLOR0) {\n"
-            "	PSInput result;\n"
-            "	result.position = position;\n"
-            "	result.color = color;\n"
-            "	return result;\n"
-            "}\n"
-            "float4 PSMain(PSInput input) : SV_TARGET {\n"
-            "	return input.color;\n"
-            "}\n");
-
-    hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
-                         nullptr,
-                         NULL, NULL, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
-                         0, nullptr, 0,
-                         &ps, &ps_error));
-
-    //device->CreatePixelShader(result_blob->GetBufferPointer(), result_blob->GetBufferSize(), nullptr, &pixel_shader);
-    //device_context->PSSetShader(pixel_shader, nullptr, 0);
-//
-//    std::string vertex_shader_code = std::string(
-//            "float4 main(float2 pos : Position) : SV_Position\n"
-//            "{\n"
-//            "    return float4(pos.x, pos.y, 0.0f, 1.0f);\n"
-//            "}");
-
-    hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
-                         nullptr,
-                         NULL, NULL, "VSMain", "vs_4_0", D3DCOMPILE_DEBUG, 0,
-                         0, nullptr,  0,
-                         &vs, &vs_error));
-
-
-//
-//    D3D12_INPUT_ELEMENT_DESC vertexFormat[] = {
-//            {
-//                    .SemanticName = "POSITION",
-//                    .Format = DXGI_FORMAT_R32G32B32_FLOAT,
-//                    .InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-//            },
-//            {
-//                    .SemanticName = "COLOR",
-//                    .Format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-//                    .AlignedByteOffset = sizeof(float) * 3,
-//                    .InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-//            },
-//    };
-
-//    D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
-//    {
-//         {"Position",
-//             0,
-//             DXGI_FORMAT_R32G32_FLOAT,
-//             0,
-//             0,
-//             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-//             0
-//         }
-//    };
-
-    D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
     {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-    };
+        ID3DBlob *vs, *vs_error;
+        ID3DBlob *ps, *ps_error;
 
-    //UINT vertexFormat_count = 1;
+        std::string shader_code = std::string(
+                "struct PSInput {\n"
+                "	float4 position : SV_POSITION;\n"
+                "	float4 color : COLOR;\n"
+                "};\n"
+                "PSInput VSMain(float4 position : POSITION0, float4 color : COLOR0) {\n"
+                "	PSInput result;\n"
+                "	result.position = position;\n"
+                "	result.color = color;\n"
+                "	return result;\n"
+                "}\n"
+                "float4 PSMain(PSInput input) : SV_TARGET {\n"
+                "	return input.color;\n"
+                "}\n");
 
-    const D3D12_RENDER_TARGET_BLEND_DESC defaultBlendState = {
-            .BlendEnable = FALSE,
-            .LogicOpEnable = FALSE,
+        HRESULT hr;
+        hr = D3DCompile2(shader_code.c_str(), shader_code.length(),
+                             nullptr,
+                             nullptr, nullptr, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
+                             0, nullptr, 0,
+                             &ps, &ps_error);
+        if ( FAILED(hr) )
+        {
+            if ( ps_error )
+            {
+                std::cerr << "Pixel Shader Compilation Failed: " << (char*)ps_error->GetBufferPointer() << std::endl;
+                ps_error->Release();
+            }
+            hr_check(hr);
+        }
 
-            .SrcBlend = D3D12_BLEND_ONE,
-            .DestBlend = D3D12_BLEND_ZERO,
-            .BlendOp = D3D12_BLEND_OP_ADD,
+        hr = D3DCompile2(shader_code.c_str(), shader_code.length(),
+                             nullptr,
+                             nullptr, nullptr, "VSMain", "vs_4_0", D3DCOMPILE_DEBUG, 0,
+                             0, nullptr, 0,
+                             &vs, &vs_error);
+        if ( FAILED(hr) )
+        {
+            if ( ps_error )
+            {
+                std::cerr << "Vertex Shader Compilation Failed: " << (char*)ps_error->GetBufferPointer() << std::endl;
+                ps_error->Release();
+            }
+            hr_check(hr);
+        }
 
-            .SrcBlendAlpha = D3D12_BLEND_ONE,
-            .DestBlendAlpha = D3D12_BLEND_ZERO,
-            .BlendOpAlpha = D3D12_BLEND_OP_ADD,
+        D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
+                {
+                        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+                        {"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+                };
 
-            .LogicOp = D3D12_LOGIC_OP_NOOP,
-            .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL,
-    };
+        const D3D12_RENDER_TARGET_BLEND_DESC defaultBlendState = {
+                .BlendEnable = FALSE,
+                .LogicOpEnable = FALSE,
 
-    ID3D12RootSignature* rootSignature;
-    {
+                .SrcBlend = D3D12_BLEND_ONE,
+                .DestBlend = D3D12_BLEND_ZERO,
+                .BlendOp = D3D12_BLEND_OP_ADD,
+
+                .SrcBlendAlpha = D3D12_BLEND_ONE,
+                .DestBlendAlpha = D3D12_BLEND_ZERO,
+                .BlendOpAlpha = D3D12_BLEND_OP_ADD,
+
+                .LogicOp = D3D12_LOGIC_OP_NOOP,
+                .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL,
+        };
+
         D3D12_VERSIONED_ROOT_SIGNATURE_DESC desc = {
                 .Version = D3D_ROOT_SIGNATURE_VERSION_1_0,
                 .Desc_1_0 = {
                         .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
                 },
         };
-        ID3DBlob* serializedDesc = nullptr;
-        hr_check(D3D12SerializeVersionedRootSignature(&desc, &serializedDesc, NULL));
 
-        hr_check(device->CreateRootSignature(0,
-                                             serializedDesc->GetBufferPointer(),
-                                            serializedDesc->GetBufferSize(),
-                                             IID_PPV_ARGS(&rootSignature)));
+        {
+            ID3DBlob* serializedDesc = nullptr;
+            hr_check(D3D12SerializeVersionedRootSignature(&desc, &serializedDesc, nullptr));
 
-        //serializedDesc->Release();
+            hr_check(device->CreateRootSignature(0,
+                                                 serializedDesc->GetBufferPointer(),
+                                                 serializedDesc->GetBufferSize(),
+                                                 IID_PPV_ARGS(&rootSignature)));
+
+            serializedDesc->Release();
+        }
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc = {
+                .pRootSignature = rootSignature,
+                .VS = {
+                        .pShaderBytecode = vs->GetBufferPointer(),
+                        .BytecodeLength = vs->GetBufferSize(),
+                },
+                .PS = {
+                        .pShaderBytecode = ps->GetBufferPointer(),
+                        .BytecodeLength = ps->GetBufferSize(),
+                },
+                .StreamOutput = {0},
+                .BlendState = {
+                        .AlphaToCoverageEnable = FALSE,
+                        .IndependentBlendEnable = FALSE,
+                        .RenderTarget = {defaultBlendState},
+                },
+                .SampleMask = 0xFFFFFFFF,
+                .RasterizerState = {
+                        .FillMode = D3D12_FILL_MODE_SOLID,
+                        .CullMode = D3D12_CULL_MODE_BACK,
+                        .FrontCounterClockwise = FALSE,
+                        .DepthBias = 0,
+                        .DepthBiasClamp = 0,
+                        .SlopeScaledDepthBias = 0,
+                        .DepthClipEnable = TRUE,
+                        .MultisampleEnable = FALSE,
+                        .AntialiasedLineEnable = FALSE,
+                        .ForcedSampleCount = 0,
+                        .ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
+                },
+                .DepthStencilState = {
+                        .DepthEnable = FALSE,
+                        .StencilEnable = FALSE,
+                },
+                .InputLayout = {
+                        .pInputElementDescs = vertexFormat,
+                        .NumElements = sizeof(vertexFormat) / sizeof(D3D12_INPUT_ELEMENT_DESC)//vertexFormat_count,
+                },
+                .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+                .NumRenderTargets = 1,
+                .RTVFormats = {DXGI_FORMAT_R8G8B8A8_UNORM},
+                .DSVFormat = DXGI_FORMAT_UNKNOWN,
+                .SampleDesc = {
+                        .Count = 1,
+                        .Quality = 0,
+                },
+        };
+
+        hr_check(device->CreateGraphicsPipelineState(
+                &pipelineStateDesc, IID_PPV_ARGS(&pipeline)));
+
+        vs->Release();
+        ps->Release();
+
     }
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc = {
-            .pRootSignature = rootSignature,
-            .VS = {
-                    .pShaderBytecode = vs->GetBufferPointer(),
-                    .BytecodeLength = vs->GetBufferSize(),
-            },
-            .PS = {
-                    .pShaderBytecode = ps->GetBufferPointer(),
-                    .BytecodeLength = ps->GetBufferSize(),
-            },
-            .StreamOutput = {0},
-            .BlendState = {
-                    .AlphaToCoverageEnable = FALSE,
-                    .IndependentBlendEnable = FALSE,
-                    .RenderTarget = { defaultBlendState },
-            },
-            .SampleMask = 0xFFFFFFFF,
-            .RasterizerState = {
-                    .FillMode = D3D12_FILL_MODE_SOLID,
-                    .CullMode = D3D12_CULL_MODE_BACK,
-                    .FrontCounterClockwise = FALSE,
-                    .DepthBias = 0,
-                    .DepthBiasClamp = 0,
-                    .SlopeScaledDepthBias = 0,
-                    .DepthClipEnable = TRUE,
-                    .MultisampleEnable = FALSE,
-                    .AntialiasedLineEnable = FALSE,
-                    .ForcedSampleCount = 0,
-                    .ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
-            },
-            .DepthStencilState = {
-                    .DepthEnable = FALSE,
-                    .StencilEnable = FALSE,
-            },
-            .InputLayout = {
-                    .pInputElementDescs = vertexFormat,
-                    .NumElements = sizeof(vertexFormat) / sizeof(D3D12_INPUT_ELEMENT_DESC)//vertexFormat_count,
-            },
-            .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-            .NumRenderTargets = 1,
-            .RTVFormats = { DXGI_FORMAT_R8G8B8A8_UNORM },
-            .DSVFormat = DXGI_FORMAT_UNKNOWN,
-            .SampleDesc = {
-                    .Count = 1,
-                    .Quality = 0,
-            },
-    };
-
-    ID3D12PipelineState* pipeline;
-    hr_check(device->CreateGraphicsPipelineState(
-            &pipelineStateDesc, IID_PPV_ARGS(&pipeline)));
-
-    //vs->Release();
-    //ps->Release();
-
-
-    //graphics_command_list->RSSetViewports(1u, &viewport);
 
     // Render to the target
     {
-
-//        hr_check(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-//                                           frameCtx->CommandAllocator, pipeline, IID_PPV_ARGS(&g_pd3dCommandList)));
-//        hr_check(g_pd3dCommandList->Close());
-
-        //ID3D12CommandList* command_list;
         hr_check(frameCtx->CommandAllocator->Reset());
         hr_check(graphics_command_list->Reset(frameCtx->CommandAllocator, pipeline));
 
@@ -254,8 +234,8 @@ void D3DContext::DrawTriangle(int width, int height,
         viewport.MaxDepth = 1;
         viewport.TopLeftX = 0;
         viewport.TopLeftY = 0;
-        viewport.Width = (int)width;
-        viewport.Height = (int)height;
+        viewport.Width = (float) width;
+        viewport.Height = (float) height;
 
         const D3D12_RECT scissorRect = {
                 .left = 0,
@@ -272,42 +252,38 @@ void D3DContext::DrawTriangle(int width, int height,
         UINT backBufferIdx = swapChain->GetCurrentBackBufferIndex();
 
         D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barrier.Transition.pResource   = g_mainRenderTargetResource[backBufferIdx];
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        barrier.Transition.pResource = g_mainRenderTargetResource[backBufferIdx];
         barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
         //graphics_command_list->Reset(frameCtx->CommandAllocator,  );
         graphics_command_list->ResourceBarrier(1, &barrier);
 
         graphics_command_list->OMSetRenderTargets(1, &g_mainRenderTargetDescriptor[backBufferIdx], FALSE, nullptr);
-        // Render Dear ImGui graphics
-//                const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-        FLOAT color[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-        graphics_command_list->ClearRenderTargetView(g_mainRenderTargetDescriptor[backBufferIdx], color /*clear_color_with_alpha*/, 0, nullptr);
+
+        FLOAT color[] = {0.0f, 0.2f, 0.4f, 1.0f};
+        graphics_command_list->ClearRenderTargetView(g_mainRenderTargetDescriptor[backBufferIdx],
+                                                     color /*clear_color_with_alpha*/, 0, nullptr);
         graphics_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         graphics_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
 
-        //graphics_command_list->SetPipelineState(pipeline);
-        //graphics_command_list->SetDescriptorHeaps(1, &g_pd3dSrvDescHeap);
+        // Finally drawing the bloody triangle!
         graphics_command_list->DrawInstanced(3, 1, 0, 0);
 
-        // execute
-        //ID3D12GraphicsCommandList* cmdlists[] = { graphics_command_list };
-        //command_queue->ExecuteCommandLists(1, (ID3D12CommandList**)cmdlists);
-        //ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_pd3dCommandList);
-
-
         barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
         graphics_command_list->ResourceBarrier(1, &barrier);
         graphics_command_list->Close();
 
-        command_queue->ExecuteCommandLists(1, (ID3D12CommandList* const*)&graphics_command_list);
+        command_queue->ExecuteCommandLists(1, (ID3D12CommandList *const *) &graphics_command_list);
     }
 
-    //vertex_buffer->Release();
+    pipeline->Release();
+    rootSignature->Release();
+
+    return vertex_buffer;
 }
 
 
@@ -437,7 +413,8 @@ bool D3DContext::CreateDeviceD3D(/*HWND hWnd*/)
 void D3DContext::CleanupDeviceD3D()
 {
     CleanupRenderTarget();
-    if (swapChain) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
+    if (vertex_buffer != nullptr) { vertex_buffer->Release(); }
+    if (swapChain != nullptr) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
     if (g_hSwapChainWaitableObject != nullptr) { CloseHandle(g_hSwapChainWaitableObject); }
     for (UINT i = 0; i < NUM_FRAMES_IN_FLIGHT; i++)
         if (g_frameContext[i].CommandAllocator) { g_frameContext[i].CommandAllocator->Release(); g_frameContext[i].CommandAllocator = nullptr; }
@@ -548,22 +525,43 @@ D3DContext::D3DContext(): device(nullptr), swapChain(nullptr), descriptorHeap(nu
     bool_check(CreateDeviceD3D());
 }
 
+void D3DContext::checkDeviceRemoved(HRESULT hr) {
+    if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+    {
+#ifdef _DEBUG
+        char buff[64] = {};
+        sprintf_s(buff, "Device Lost: Reason code 0x%08X\n",
+                  (hr == DXGI_ERROR_DEVICE_REMOVED) ? device->GetDeviceRemovedReason() : hr);
+        std::cerr << buff << std::endl;
+#endif
+        // If the device was removed for any reason, a new device
+        // and swap chain will need to be created.
+        //HandleDeviceLost();
+    }
+    else
+    {
+        // Any other failed result is a fatal fast-fail
+        hr_check(hr);
+    }
+}
+
 void D3DContext::reposition(const RECT& position) {
 	unsigned int width = position.right - position.left;
 	unsigned int height = position.bottom - position.top;
 
     CleanupRenderTarget();
-    hr_check(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
+    checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
+
     CreateRenderTarget();
 
     FrameContext* frameCtx = WaitForNextFrameResources();
 
-    DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain, frameCtx);
+    vertex_buffer = DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain, frameCtx, vertex_buffer);
 
 	syncIntelGPU(position);
 
 	// Discard outstanding queued presents and queue a frame with the new size ASAP.
-    hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));
+    checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
     //g_pSwapChain->Present(1, 0); // Present with vsync
     //g_pSwapChain->Present(0, 0); // Present without vsync
 
@@ -577,7 +575,7 @@ void D3DContext::reposition(const RECT& position) {
     // TODO: Determine why this is necessary at all. Why isn't one Present() enough?
     // TODO: Determine if there's a way to wait for vblank without calling Present().
     // TODO: Determine if DO_NOT_SEQUENCE is safe to use with SWAP_EFFECT_FLIP_DISCARD.
-    hr_check(swapChain->Present(1, DXGI_PRESENT_DO_NOT_SEQUENCE));
+    checkDeviceRemoved(swapChain->Present(1, DXGI_PRESENT_DO_NOT_SEQUENCE));
 
 }
 

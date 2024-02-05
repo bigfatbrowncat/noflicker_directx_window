@@ -24,13 +24,13 @@ target_compile_definitions(${EXE_DX11} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE
 target_compile_features(${EXE_DX11} PUBLIC cxx_std_20)
 target_link_libraries(${EXE_DX11} PUBLIC D3D11 dxgi D3DCompiler Dcomp)
 
-#set_target_properties(${EXE_DX11}
-#        PROPERTIES
-#        LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE  /ENTRY:WinMainCRTStartup"
-#        LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
-#        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
-#        LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
-#        )
+set_target_properties(${EXE_DX11}
+        PROPERTIES
+        LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE  /ENTRY:WinMainCRTStartup /DDEBUG /D_DEBUG"
+        LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        )
 
 # Demo for DirectX 12
 
@@ -47,3 +47,10 @@ target_compile_definitions(${EXE_DX12} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE
 target_compile_features(${EXE_DX12} PUBLIC cxx_std_20)
 target_link_libraries(${EXE_DX12} PUBLIC D3D12 dxgi D3DCompiler Dcomp)
 
+set_target_properties(${EXE_DX12}
+        PROPERTIES
+        LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE  /ENTRY:WinMainCRTStartup /DDEBUG /D_DEBUG"
+        LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup"
+        )

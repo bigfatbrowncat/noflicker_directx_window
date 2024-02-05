@@ -6,7 +6,8 @@
 #include <vector>
 #include <stdexcept>
 
-struct Vertex { float x, y, z, r, g, b, a; };
+struct Vertex {
+    [[maybe_unused]] float x, y, z, r, g, b, a; };      // "Maybe unused" because all the data is passed to the GPU
 
 void draw_triangle(int width, int height,
                    ID3D11Device* device,

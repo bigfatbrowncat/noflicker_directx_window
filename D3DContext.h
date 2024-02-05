@@ -73,6 +73,7 @@ struct D3DContext : public D3DContextBase {
     ID3D12Resource*              g_mainRenderTargetResource[NUM_BACK_BUFFERS] = {};
     D3D12_CPU_DESCRIPTOR_HANDLE  g_mainRenderTargetDescriptor[NUM_BACK_BUFFERS] = {};
 
+    ID3D12Resource* vertex_buffer = nullptr;
 private:
     bool CreateDeviceD3D();
     void CleanupDeviceD3D();
@@ -81,11 +82,12 @@ private:
     void WaitForLastSubmittedFrame();
     void FlushGPU();
     FrameContext* WaitForNextFrameResources();
-    void DrawTriangle(int width, int height,
+    void checkDeviceRemoved(HRESULT hr);
+    ID3D12Resource* DrawTriangle(int width, int height,
                       ID3D12Device* device,
                       ID3D12GraphicsCommandList* graphics_command_list,
                       ID3D12CommandQueue* command_queue,
-                      IDXGISwapChain3* swap_chain, FrameContext* frameCtx);
+                      IDXGISwapChain3* swap_chain, FrameContext* frameCtx, ID3D12Resource* vertex_buffer);
 public:
 
 #else
