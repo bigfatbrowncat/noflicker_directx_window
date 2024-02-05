@@ -530,7 +530,7 @@ void D3DContext::reposition(const RECT& position) {
 	unsigned int height = position.bottom - position.top;
 
     CleanupRenderTarget();
-    checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
+    (swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
 
     CreateRenderTarget();
 

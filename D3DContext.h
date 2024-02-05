@@ -41,6 +41,11 @@ struct D3DContext : public D3DContextBase {
     ID3D11Device *device;
     ID3D11DeviceContext *deviceContext;
     IDXGISwapChain1 *swapChain;
+    void DrawTriangle(int width, int height,
+                              ID3D11Device* device,
+                              ID3D11DeviceContext* device_context,
+                              IDXGISwapChain1* swap_chain);
+
 #elif defined(USE_DX12)
     struct FrameContext
     {
@@ -77,7 +82,6 @@ private:
     void WaitForLastSubmittedFrame();
     void FlushGPU();
     FrameContext* WaitForNextFrameResources();
-    void checkDeviceRemoved(HRESULT hr);
     ID3D12Resource* DrawTriangle(int width, int height,
                       ID3D12Device* device,
                       ID3D12GraphicsCommandList* graphics_command_list,
@@ -91,9 +95,5 @@ public:
 
     D3DContext();
     void reposition(const RECT& position);
-    void DrawTriangle(int width, int height,
-                                  ID3D11Device* device,
-                                  ID3D11DeviceContext* device_context,
-                                  IDXGISwapChain1* swap_chain);
     ~D3DContext() override;
 };
