@@ -12,12 +12,26 @@
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
 
+#include <vector>
+
 // The base class for the Direct3D contexts.
 // Contains common (mostly DXGI) logic between the DirectX versions
 struct D3DContextBase : public Base {
+#if defined(USE_DX11)
+	ID3D11Device *device;
+#elif defined(USE_DX12)
+	ID3D12Device *device;
+#else
+#error "You should set either USE_DX11 or USE_DX12"
+#endif
+
 	IDXGIAdapter* intelAdapter = nullptr;
 	IDXGIFactory2* dxgiFactory = nullptr;
 
+	IDXGIOutput* intelAdapterOutput = nullptr;
+	std::vector<IDXGIAdapter*> adapters;
+
+	void checkDeviceRemoved(HRESULT hr) const;
 	static bool checkRECTsIntersect(const RECT& r1, const RECT& r2);
 	static bool checkRECTContainsPoint(const RECT& r, LONG x, LONG y);
 
@@ -26,19 +40,19 @@ struct D3DContextBase : public Base {
 	// If there is an Intel adapter in the system, we have to synchronize with it manually,
 	// because we can face flickering instead. No idea, why, but "immediate"
 	// rendering on Intel GPU is still not immediate.
-	//
+	void lookForIntelOutput(const RECT& position);
+
 	// This one should be called between the drawing function and the swapChain->Present() call
-	void syncIntelGPU(const RECT& position) const;
+	void syncIntelOutput() const;
 
-    static void checkDeviceRemoved(HRESULT hr);
+	RECT getFullDisplayRECT() const;
 
-    virtual ~D3DContextBase();
+	virtual ~D3DContextBase();
 };
 
 // The Direct3D-specific context. Depends on the DirectX version flags
 struct D3DContext : public D3DContextBase {
 #if defined(USE_DX11)
-    ID3D11Device *device;
     ID3D11DeviceContext *deviceContext;
     IDXGISwapChain1 *swapChain;
     void DrawTriangle(int width, int height,
@@ -59,7 +73,6 @@ struct D3DContext : public D3DContextBase {
     FrameContext                 g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
     UINT                         g_frameIndex = 0;
 
-    ID3D12Device* device;
     ID3D12DescriptorHeap* descriptorHeap;
     ID3D12DescriptorHeap*        g_pd3dRtvDescHeap = nullptr;
     ID3D12DescriptorHeap*        g_pd3dSrvDescHeap = nullptr;
@@ -75,18 +88,27 @@ struct D3DContext : public D3DContextBase {
 
     ID3D12Resource* vertex_buffer = nullptr;
 private:
-    bool CreateDeviceD3D();
+	struct DrawingCache {
+		ID3D12Resource* vertex_buffer = nullptr;
+		ID3D12PipelineState *pipeline = nullptr;
+	};
+	DrawingCache drawingCache;
+
+	bool CreateDeviceD3D();
     void CleanupDeviceD3D();
     void CreateRenderTarget();
     void CleanupRenderTarget();
     void WaitForLastSubmittedFrame();
     void FlushGPU();
     FrameContext* WaitForNextFrameResources();
-    ID3D12Resource* DrawTriangle(int width, int height,
+    static void DrawTriangle(int width, int height,
                       ID3D12Device* device,
                       ID3D12GraphicsCommandList* graphics_command_list,
                       ID3D12CommandQueue* command_queue,
-                      IDXGISwapChain3* swap_chain, FrameContext* frameCtx, ID3D12Resource* vertex_buffer);
+							 IDXGISwapChain3* swap_chain,
+							 ID3D12Resource*              mainRenderTargetResource,
+							 D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
+							 FrameContext* frameCtx, DrawingCache* vertex_buffer);
 public:
 
 #else

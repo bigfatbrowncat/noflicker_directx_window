@@ -7,16 +7,16 @@ The original annotation:
 <div align="center">
 <img src="res/resize_demo.gif" style="width: 320pt" />
 </div>
-<p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. This project adds some features to it:</p>
+<p>The original code provided was built upon DirectX 11 API and included only empty screen rendering. This project adds some features to it. Currently, it provides:</p>
 
 * The classic "rainbow triangle" render
-* DirectX 12 backend
+* Both Direct3D 11 & 12 backends
+* A workaround for buggy Intel GPUs (described below in the "Known Issues" paragraph) 
 
-     </p></tr>
-    </table>
-</div>
+## The Original Description
 
-The original solution description by [jbatez](https://www.gamedev.net/jbatez):
+The original solution description by [jbatez](https://www.gamedev.net/jbatez) contains the 
+explanation of the general design idea:
 
 >TLDR:
 >
@@ -41,4 +41,26 @@ The long answer:
 >
 >Be warned: I've read bug reports of capture software not working with DirectComposition. It sounds like there are workarounds, though, so it's probably just a matter of software catching up and becoming DirectComposition-aware.
 
-Although, the application claims that it never flickers, alas, I managed to find a system (a Chinese laptop with i7-1195G7 + integrated GPU + Windows 10 aboard) on which it slightly flickers on resize. But it seems to be an unfortunate GPU/drivers behaviour which Intel is famous for...</td>
+## Known Issues
+
+Although, the application claims that it never flickers, alas, on some laptops it still flickers a bit.
+
+The configuration that needed to be fixed specifically was: i7-1195G7 + integrated GPU + Windows 10 aboard.
+
+It seems to be an unfortunate GPU/drivers behaviour which Intel is infamous for. 
+The synchronization of Direct3D apparently is slightly broken on this configuration 
+and the resizing flickers due to a race condition somewhere between Direct3D 
+and the GPU driver. There is no way (that I could find) to fix this directly, but 
+there is a workaround that reduces the impact. 
+
+This workaround is represented by two functions: `D3DContextBase::lookForIntelOutput()` and `D3DContextBase::syncIntelOutput()`. 
+The first one finds the intel GPU in the system, the second one waits for a VBlank on this GPU. It should be called in a 
+proper place (between the redrawing and the `swapChain->Present()` call). 
+
+This small workaround doesn't affect any discrete GPU-based systems in any way, but reduces the probability of flicker 
+on the Intel iGPU from 30-50% to less than 1%. Sad, but true, it can't fix the issue completely. 
+
+Especially, the problem is still visible on multidisplay systems, when the window is shown partially 
+on one screen, partially on another. Luckily, this is a really rare use case.
+
+Anyway, any solution to this issue is always welcome in this repo as a Pull Request!

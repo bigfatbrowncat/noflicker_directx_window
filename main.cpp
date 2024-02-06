@@ -77,6 +77,8 @@ LRESULT window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 int WinMain(HINSTANCE hinstance, HINSTANCE, LPSTR, int)
 {
     context = std::make_shared<D3DContext>();
+	//RECT full_rect { 0, 0, 4000, 3000 };
+	//context->reposition(full_rect);
 
     // Register the window class.
     WNDCLASS wc = {};

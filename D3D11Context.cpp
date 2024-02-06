@@ -147,7 +147,7 @@ void D3DContext::DrawTriangle(int width, int height,
 }
 
 
-D3DContext::D3DContext(): device(nullptr), deviceContext(nullptr), swapChain(nullptr) {
+D3DContext::D3DContext(): deviceContext(nullptr), swapChain(nullptr) {
     // Create the D3D device.
     hr_check(D3D11CreateDevice(
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
@@ -166,13 +166,17 @@ D3DContext::D3DContext(): device(nullptr), deviceContext(nullptr), swapChain(nul
     scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
     hr_check(dxgiFactory->CreateSwapChainForComposition(device, &scd, nullptr, &swapChain));
+
+	this->reposition(getFullDisplayRECT());
 }
 
 void D3DContext::reposition(const RECT& position) {
 	unsigned int width = position.right - position.left;
 	unsigned int height = position.bottom - position.top;
 
-    // A real app might want to compare these dimensions with the current swap chain
+	lookForIntelOutput(position);
+
+	// A real app might want to compare these dimensions with the current swap chain
     // dimensions and skip all this if they're unchanged.
     hr_check(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0));
     /*if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
@@ -184,7 +188,7 @@ void D3DContext::reposition(const RECT& position) {
 
     DrawTriangle(width, height, device, deviceContext,  swapChain);
 
-	syncIntelGPU(position);
+	syncIntelOutput();
 
     // Discard outstanding queued presents and queue a frame with the new size ASAP.
     hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));

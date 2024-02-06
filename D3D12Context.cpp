@@ -20,11 +20,14 @@ struct Vertex {
     [[maybe_unused]] float x, y, z, r, g, b, a;     // "Maybe unused" because all the data is passed to the GPU
 };
 
-ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
+void D3DContext::DrawTriangle(int width, int height,
                    ID3D12Device* device,
                    ID3D12GraphicsCommandList* graphics_command_list,
                    ID3D12CommandQueue* command_queue,
-                   IDXGISwapChain3* swap_chain, FrameContext* frameCtx, ID3D12Resource* vertex_buffer) {
+					IDXGISwapChain3* swap_chain,
+					ID3D12Resource*              mainRenderTargetResource,
+					D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
+				   FrameContext* frameCtx, D3DContext::DrawingCache* drawing_cache) {
 
     std::vector<Vertex> vertices = {
             { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
@@ -45,7 +48,7 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
             .Flags = D3D12_RESOURCE_FLAG_NONE,
     };
 
-    if (vertex_buffer == nullptr) {
+    if (drawing_cache->vertex_buffer == nullptr) {
         D3D12_HEAP_PROPERTIES heap_props = {
                 .Type = D3D12_HEAP_TYPE_UPLOAD
         };
@@ -56,24 +59,23 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
                 &vb_desc,
                 D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
-                IID_PPV_ARGS(&vertex_buffer)));
+                IID_PPV_ARGS(&drawing_cache->vertex_buffer)));
     }
 
     {
         void *gpu_data = nullptr;
         D3D12_RANGE read_range = {0, 0}; // CPU isn't going to read this data, only write
-        hr_check(vertex_buffer->Map(0, &read_range, &gpu_data));
+        hr_check(drawing_cache->vertex_buffer->Map(0, &read_range, &gpu_data));
         memcpy(gpu_data, &vertices[0], vb_desc.Width);
-        vertex_buffer->Unmap(0, nullptr);
+		drawing_cache->vertex_buffer->Unmap(0, nullptr);
     }
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {
-            .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
+            .BufferLocation = drawing_cache->vertex_buffer->GetGPUVirtualAddress(),
             .SizeInBytes = static_cast<UINT>(sizeof(Vertex) * vertices.size()),
             .StrideInBytes = sizeof(Vertex)
     };
 
-    ID3D12PipelineState *pipeline;
     ID3D12RootSignature *rootSignature;
 
     {
@@ -128,8 +130,8 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
 
         D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
                 {
-                        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-                        {"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+				{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+				{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
                 };
 
         const D3D12_RENDER_TARGET_BLEND_DESC defaultBlendState = {
@@ -215,8 +217,10 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
                 },
         };
 
-        hr_check(device->CreateGraphicsPipelineState(
-                &pipelineStateDesc, IID_PPV_ARGS(&pipeline)));
+		if (drawing_cache->pipeline == nullptr) {
+			hr_check(device->CreateGraphicsPipelineState(
+					&pipelineStateDesc, IID_PPV_ARGS(&drawing_cache->pipeline)));
+		}
 
         vs->Release();
         ps->Release();
@@ -226,8 +230,7 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
     // Render to the target
     {
         hr_check(frameCtx->CommandAllocator->Reset());
-        hr_check(graphics_command_list->Reset(frameCtx->CommandAllocator, pipeline));
-
+        hr_check(graphics_command_list->Reset(frameCtx->CommandAllocator, drawing_cache->pipeline));
 
         D3D12_VIEWPORT viewport;
         viewport.MinDepth = 0;
@@ -244,27 +247,24 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
                 .bottom = height,
         };
 
-
         graphics_command_list->SetGraphicsRootSignature(rootSignature);
         graphics_command_list->RSSetViewports(1, &viewport);
         graphics_command_list->RSSetScissorRects(1, &scissorRect);
 
-        UINT backBufferIdx = swapChain->GetCurrentBackBufferIndex();
-
         D3D12_RESOURCE_BARRIER barrier = {};
         barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barrier.Transition.pResource = g_mainRenderTargetResource[backBufferIdx];
+        barrier.Transition.pResource = mainRenderTargetResource; //g_mainRenderTargetResource[backBufferIdx];
         barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
         barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
         //graphics_command_list->Reset(frameCtx->CommandAllocator,  );
         graphics_command_list->ResourceBarrier(1, &barrier);
 
-        graphics_command_list->OMSetRenderTargets(1, &g_mainRenderTargetDescriptor[backBufferIdx], FALSE, nullptr);
+        graphics_command_list->OMSetRenderTargets(1, &mainRenderTargetDescriptor, FALSE, nullptr);
 
         FLOAT color[] = {0.0f, 0.2f, 0.4f, 1.0f};
-        graphics_command_list->ClearRenderTargetView(g_mainRenderTargetDescriptor[backBufferIdx],
+        graphics_command_list->ClearRenderTargetView(mainRenderTargetDescriptor,
                                                      color /*clear_color_with_alpha*/, 0, nullptr);
         graphics_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         graphics_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
@@ -280,10 +280,11 @@ ID3D12Resource* D3DContext::DrawTriangle(int width, int height,
         command_queue->ExecuteCommandLists(1, (ID3D12CommandList *const *) &graphics_command_list);
     }
 
-    pipeline->Release();
-    rootSignature->Release();
+	//graphics_command_list->SetGraphicsRootSignature(nullptr);
+	//graphics_command_list->ClearState(drawing_cache->pipeline);
+	//hr_check(graphics_command_list->Reset(frameCtx->CommandAllocator, drawing_cache->pipeline));
 
-    return vertex_buffer;
+	rootSignature->Release();
 }
 
 
@@ -521,24 +522,30 @@ D3DContext::FrameContext* D3DContext::WaitForNextFrameResources()
     return frameCtx;
 }
 
-D3DContext::D3DContext(): device(nullptr), swapChain(nullptr), descriptorHeap(nullptr) {
+D3DContext::D3DContext(): swapChain(nullptr), descriptorHeap(nullptr) {
     bool_check(CreateDeviceD3D());
+	this->reposition(getFullDisplayRECT());
 }
 
 void D3DContext::reposition(const RECT& position) {
 	unsigned int width = position.right - position.left;
 	unsigned int height = position.bottom - position.top;
 
-    CleanupRenderTarget();
-    (swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
+	lookForIntelOutput(position);
 
+	CleanupRenderTarget();
+	checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
     CreateRenderTarget();
 
     FrameContext* frameCtx = WaitForNextFrameResources();
 
-    vertex_buffer = DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain, frameCtx, vertex_buffer);
+	UINT backBufferIdx = swapChain->GetCurrentBackBufferIndex();
+	DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain,
+								 g_mainRenderTargetResource[backBufferIdx],
+								 g_mainRenderTargetDescriptor[backBufferIdx],
+								 frameCtx, &this->drawingCache);
 
-	syncIntelGPU(position);
+	syncIntelOutput();
 
 	// Discard outstanding queued presents and queue a frame with the new size ASAP.
     checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
