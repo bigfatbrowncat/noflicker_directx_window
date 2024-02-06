@@ -129,10 +129,10 @@ void D3DContext::DrawTriangle(int width, int height,
         }
 
         D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
-                {
-				{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-				{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
-                };
+        {
+			{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+        };
 
         const D3D12_RENDER_TARGET_BLEND_DESC defaultBlendState = {
                 .BlendEnable = FALSE,
@@ -414,11 +414,14 @@ bool D3DContext::CreateDeviceD3D(/*HWND hWnd*/)
 void D3DContext::CleanupDeviceD3D()
 {
     CleanupRenderTarget();
-    if (vertex_buffer != nullptr) { vertex_buffer->Release(); }
     if (swapChain != nullptr) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
     if (g_hSwapChainWaitableObject != nullptr) { CloseHandle(g_hSwapChainWaitableObject); }
-    for (UINT i = 0; i < NUM_FRAMES_IN_FLIGHT; i++)
-        if (g_frameContext[i].CommandAllocator) { g_frameContext[i].CommandAllocator->Release(); g_frameContext[i].CommandAllocator = nullptr; }
+    for (auto & i : g_frameContext) {
+        if (i.CommandAllocator) {
+            i.CommandAllocator->Release();
+            i.CommandAllocator = nullptr;
+        }
+    }
     if (g_pd3dCommandQueue) { g_pd3dCommandQueue->Release(); g_pd3dCommandQueue = nullptr; }
     if (g_pd3dCommandList) { g_pd3dCommandList->Release(); g_pd3dCommandList = nullptr; }
     if (g_pd3dRtvDescHeap) { g_pd3dRtvDescHeap->Release(); g_pd3dRtvDescHeap = nullptr; }
@@ -452,8 +455,8 @@ void D3DContext::CleanupRenderTarget()
 {
     FlushGPU();
 
-    for (UINT i = 0; i < NUM_BACK_BUFFERS; i++)
-        if (g_mainRenderTargetResource[i]) { g_mainRenderTargetResource[i]->Release(); g_mainRenderTargetResource[i] = nullptr; }
+    for (auto & i : g_mainRenderTargetResource)
+        if (i) { i->Release(); i = nullptr; }
 }
 
 void D3DContext::FlushGPU() {
@@ -483,19 +486,6 @@ void D3DContext::WaitForLastSubmittedFrame()
 
     g_fence->SetEventOnCompletion(fenceValue, g_fenceEvent);
     WaitForSingleObject(g_fenceEvent, INFINITE);
-
-    //flushGpu();
-//    for (int i = 0; i < NUM_BACK_BUFFERS; i++)
-//    {
-//        UINT64 fenceValueForSignal = ++fenceValue[i];
-//        commandQueue->Signal(fence[i].Get(), fenceValueForSignal);
-//        if (fence[i]->GetCompletedValue() < fenceValue[i])
-//        {
-//            fence[i]->SetEventOnCompletion(fenceValueForSignal, fenceEvent);
-//            WaitForSingleObject(fenceEvent, INFINITE);
-//        }
-//    }
-//    frameIndex = 0;
 }
 
 D3DContext::FrameContext* D3DContext::WaitForNextFrameResources()
@@ -561,7 +551,6 @@ void D3DContext::reposition(const RECT& position) {
     // TODO: Determine if there's a way to wait for vblank without calling Present().
     // TODO: Determine if DO_NOT_SEQUENCE is safe to use with SWAP_EFFECT_FLIP_DISCARD.
     checkDeviceRemoved(swapChain->Present(1, DXGI_PRESENT_DO_NOT_SEQUENCE));
-
 }
 
 D3DContext::~D3DContext() {

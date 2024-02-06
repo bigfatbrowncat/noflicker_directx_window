@@ -104,7 +104,6 @@ void D3DContextBase::syncIntelOutput() const {
 
 D3DContextBase::~D3DContextBase() {
 	if (dxgiFactory != nullptr) dxgiFactory->Release();
-	if (intelAdapter != nullptr) intelAdapter->Release();
-
+    if (intelAdapterOutput != nullptr) { intelAdapterOutput->Release(); }
 	for (IDXGIAdapter* a : adapters) { a->Release(); }
 }

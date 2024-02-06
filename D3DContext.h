@@ -86,11 +86,14 @@ struct D3DContext : public D3DContextBase {
     ID3D12Resource*              g_mainRenderTargetResource[NUM_BACK_BUFFERS] = {};
     D3D12_CPU_DESCRIPTOR_HANDLE  g_mainRenderTargetDescriptor[NUM_BACK_BUFFERS] = {};
 
-    ID3D12Resource* vertex_buffer = nullptr;
 private:
 	struct DrawingCache {
 		ID3D12Resource* vertex_buffer = nullptr;
 		ID3D12PipelineState *pipeline = nullptr;
+        ~DrawingCache() {
+            if (vertex_buffer != nullptr) { vertex_buffer->Release(); }
+            if (pipeline != nullptr) { pipeline->Release(); }
+        }
 	};
 	DrawingCache drawingCache;
 
@@ -102,15 +105,15 @@ private:
     void FlushGPU();
     FrameContext* WaitForNextFrameResources();
     static void DrawTriangle(int width, int height,
-                      ID3D12Device* device,
-                      ID3D12GraphicsCommandList* graphics_command_list,
-                      ID3D12CommandQueue* command_queue,
-							 IDXGISwapChain3* swap_chain,
-							 ID3D12Resource*              mainRenderTargetResource,
+                             ID3D12Device* device,
+                             ID3D12GraphicsCommandList* graphics_command_list,
+                             ID3D12CommandQueue* command_queue,
+                             IDXGISwapChain3* swap_chain,
+                             ID3D12Resource* mainRenderTargetResource,
 							 D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
 							 FrameContext* frameCtx, DrawingCache* vertex_buffer);
-public:
 
+public:
 #else
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
