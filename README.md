@@ -1,4 +1,6 @@
 # A Never Flickering Direct3D 11/12 Window POC
+![CMake on Windows 2019](https://github.com/bigfatbrowncat/noflicker_directx_window/actions/workflows/cmake-single-platform.yml/badge.svg)
+
 This application is originated from a [solution posted on gamedev.net](https://www.gamedev.net/forums/topic/708865-dxgi-flip-model-flickering-during-live-resize/) by the user named [jbatez](https://www.gamedev.net/jbatez):
 
 The original annotation:
