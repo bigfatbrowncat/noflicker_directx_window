@@ -518,8 +518,8 @@ D3DContext::D3DContext(): swapChain(nullptr), descriptorHeap(nullptr) {
 }
 
 void D3DContext::reposition(const RECT& position) {
-	unsigned int width = position.right - position.left;
-	unsigned int height = position.bottom - position.top;
+	int width = position.right - position.left;
+	int height = position.bottom - position.top;
 
 	lookForIntelOutput(position);
 

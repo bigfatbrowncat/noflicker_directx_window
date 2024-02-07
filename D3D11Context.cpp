@@ -171,8 +171,8 @@ D3DContext::D3DContext(): deviceContext(nullptr), swapChain(nullptr) {
 }
 
 void D3DContext::reposition(const RECT& position) {
-	unsigned int width = position.right - position.left;
-	unsigned int height = position.bottom - position.top;
+	int width = position.right - position.left;
+	int height = position.bottom - position.top;
 
 	lookForIntelOutput(position);
 
@@ -190,7 +190,7 @@ void D3DContext::reposition(const RECT& position) {
 
 	syncIntelOutput();
 
-    // Discard outstanding queued presents and queue a frame with the new size ASAP.
+	// Discard outstanding queued presents and queue a frame with the new size ASAP.
     hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));
     //Sleep(500);
     // Wait for a vblank to really make sure our frame with the new size is ready before
