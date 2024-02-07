@@ -16,24 +16,18 @@
 #pragma comment(lib, "dxguid.lib")
 #endif
 
-struct Vertex {
-    [[maybe_unused]] float x, y, z, r, g, b, a;     // "Maybe unused" because all the data is passed to the GPU
-};
 
 void D3DContext::DrawTriangle(int width, int height,
                    ID3D12Device* device,
                    ID3D12GraphicsCommandList* graphics_command_list,
                    ID3D12CommandQueue* command_queue,
-					IDXGISwapChain3* swap_chain,
-					ID3D12Resource*              mainRenderTargetResource,
-					D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
-				   FrameContext* frameCtx, D3DContext::DrawingCache* drawing_cache) {
-
-    std::vector<Vertex> vertices = {
-            { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
-            { 0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f },
-            {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f }
-    };
+                   IDXGISwapChain3* swap_chain,
+                   ID3D12Resource* mainRenderTargetResource,
+                   D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
+				   FrameContext* frameCtx,
+                   D3DContext::DrawingCache* drawing_cache,
+                   std::shared_ptr<GraphicContents> contents) {
+    auto vertices = contents->getVertices();
 
     D3D12_RESOURCE_DESC vb_desc = {
             .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
@@ -82,20 +76,7 @@ void D3DContext::DrawTriangle(int width, int height,
         ID3DBlob *vs, *vs_error;
         ID3DBlob *ps, *ps_error;
 
-        std::string shader_code = std::string(
-                "struct PSInput {\n"
-                "	float4 position : SV_POSITION;\n"
-                "	float4 color : COLOR;\n"
-                "};\n"
-                "PSInput VSMain(float4 position : POSITION0, float4 color : COLOR0) {\n"
-                "	PSInput result;\n"
-                "	result.position = position;\n"
-                "	result.color = color;\n"
-                "	return result;\n"
-                "}\n"
-                "float4 PSMain(PSInput input) : SV_TARGET {\n"
-                "	return input.color;\n"
-                "}\n");
+        std::string shader_code = contents->getShader();
 
         HRESULT hr;
         hr = D3DCompile2(shader_code.c_str(), shader_code.length(),
@@ -224,7 +205,6 @@ void D3DContext::DrawTriangle(int width, int height,
 
         vs->Release();
         ps->Release();
-
     }
 
     // Render to the target
@@ -279,10 +259,6 @@ void D3DContext::DrawTriangle(int width, int height,
 
         command_queue->ExecuteCommandLists(1, (ID3D12CommandList *const *) &graphics_command_list);
     }
-
-	//graphics_command_list->SetGraphicsRootSignature(nullptr);
-	//graphics_command_list->ClearState(drawing_cache->pipeline);
-	//hr_check(graphics_command_list->Reset(frameCtx->CommandAllocator, drawing_cache->pipeline));
 
 	rootSignature->Release();
 }
@@ -512,7 +488,7 @@ D3DContext::FrameContext* D3DContext::WaitForNextFrameResources()
     return frameCtx;
 }
 
-D3DContext::D3DContext(): swapChain(nullptr), descriptorHeap(nullptr) {
+D3DContext::D3DContext(std::shared_ptr<GraphicContents> contents): D3DContextBase(contents), swapChain(nullptr), descriptorHeap(nullptr) {
     bool_check(CreateDeviceD3D());
 	this->reposition(getFullDisplayRECT());
 }
@@ -533,7 +509,7 @@ void D3DContext::reposition(const RECT& position) {
 	DrawTriangle(width, height, device, this->g_pd3dCommandList, this->g_pd3dCommandQueue, swapChain,
 								 g_mainRenderTargetResource[backBufferIdx],
 								 g_mainRenderTargetDescriptor[backBufferIdx],
-								 frameCtx, &this->drawingCache);
+								 frameCtx, &this->drawingCache, contents);
 
 	syncIntelOutput();
 

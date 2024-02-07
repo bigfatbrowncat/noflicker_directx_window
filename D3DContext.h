@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Base.h"
+#include "GraphicContents.h"
 
 #if defined(USE_DX11)
 #include <d3d11.h>
@@ -13,6 +14,7 @@
 #endif
 
 #include <vector>
+#include <memory>
 
 // The base class for the Direct3D contexts.
 // Contains common (mostly DXGI) logic between the DirectX versions
@@ -24,6 +26,7 @@ struct D3DContextBase : public Base {
 #else
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
+    std::shared_ptr<GraphicContents> contents;
 
 	IDXGIAdapter* intelAdapter = nullptr;
 	IDXGIFactory2* dxgiFactory = nullptr;
@@ -35,7 +38,7 @@ struct D3DContextBase : public Base {
 	static bool checkRECTsIntersect(const RECT& r1, const RECT& r2);
 	static bool checkRECTContainsPoint(const RECT& r, LONG x, LONG y);
 
-	D3DContextBase();
+	explicit D3DContextBase(std::shared_ptr<GraphicContents> contents);
 
 	// If there is an Intel adapter in the system, we have to synchronize with it manually,
 	// because we can face flickering instead. No idea, why, but "immediate"
@@ -50,15 +53,17 @@ struct D3DContextBase : public Base {
 	virtual ~D3DContextBase();
 };
 
+
 // The Direct3D-specific context. Depends on the DirectX version flags
 struct D3DContext : public D3DContextBase {
 #if defined(USE_DX11)
     ID3D11DeviceContext *deviceContext;
     IDXGISwapChain1 *swapChain;
     void DrawTriangle(int width, int height,
-                              ID3D11Device* device,
-                              ID3D11DeviceContext* device_context,
-                              IDXGISwapChain1* swap_chain);
+                      ID3D11Device* device,
+                      ID3D11DeviceContext* device_context,
+                      IDXGISwapChain1* swap_chain,
+                      std::shared_ptr<GraphicContents> contents);
 
 #elif defined(USE_DX12)
     struct FrameContext
@@ -111,14 +116,15 @@ private:
                              IDXGISwapChain3* swap_chain,
                              ID3D12Resource* mainRenderTargetResource,
 							 D3D12_CPU_DESCRIPTOR_HANDLE& mainRenderTargetDescriptor,
-							 FrameContext* frameCtx, DrawingCache* vertex_buffer);
+							 FrameContext* frameCtx, DrawingCache* vertex_buffer,
+                             std::shared_ptr<GraphicContents> contents);
 
 public:
 #else
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
 
-    D3DContext();
+    explicit D3DContext(std::shared_ptr<GraphicContents> contents);
     void reposition(const RECT& position);
     ~D3DContext() override;
 };

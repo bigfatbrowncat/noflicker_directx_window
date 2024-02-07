@@ -6,19 +6,13 @@
 #include <vector>
 #include <stdexcept>
 
-struct Vertex {
-    [[maybe_unused]] float x, y, z, r, g, b, a; };      // "Maybe unused" because all the data is passed to the GPU
-
 void D3DContext::DrawTriangle(int width, int height,
                    ID3D11Device* device,
                    ID3D11DeviceContext* device_context,
-                   IDXGISwapChain1* swap_chain) {
+                   IDXGISwapChain1* swap_chain,
+                   std::shared_ptr<GraphicContents> contents) {
 
-    std::vector<Vertex> vertices = {
-            { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
-            { 0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f },
-            {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f }
-    };
+    auto vertices = contents->getVertices();
 
     D3D11_BUFFER_DESC vb_desc;
     ZeroMemory(&vb_desc, sizeof(vb_desc));
@@ -48,25 +42,11 @@ void D3DContext::DrawTriangle(int width, int height,
                 ID3DBlob *vs, *vs_error;
                 ID3DBlob *ps, *ps_error;
 
-                std::string shader_code = std::string(
-                        "struct PSInput {\n"
-                        "	float4 position : SV_POSITION;\n"
-                        "	float4 color : COLOR;\n"
-                        "};\n"
-                        "PSInput VSMain(float4 position : POSITION0, float4 color : COLOR0) {\n"
-                        "	PSInput result;\n"
-                        "	result.position = position;\n"
-                        "	result.color = color;\n"
-                        "	return result;\n"
-                        "}\n"
-                        "float4 PSMain(PSInput input) : SV_TARGET {\n"
-                        "	return input.color;\n"
-                        "}\n");
-
+                std::string shader_code = contents->getShader();
 
                 hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
                                      nullptr,
-                                     NULL, NULL, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
+                                     nullptr, nullptr, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
                                      0, nullptr, 0,
                                      &ps, &ps_error));
 
@@ -79,7 +59,7 @@ void D3DContext::DrawTriangle(int width, int height,
 
                 hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
                                      nullptr,
-                                     NULL, NULL, "VSMain", "vs_4_0", D3DCOMPILE_DEBUG, 0,
+                                     nullptr, nullptr, "VSMain", "vs_4_0", D3DCOMPILE_DEBUG, 0,
                                      0, nullptr, 0,
                                      &vs, &vs_error));
 
@@ -147,7 +127,7 @@ void D3DContext::DrawTriangle(int width, int height,
 }
 
 
-D3DContext::D3DContext(): deviceContext(nullptr), swapChain(nullptr) {
+D3DContext::D3DContext(std::shared_ptr<GraphicContents> contents): D3DContextBase(std::move(contents)), deviceContext(nullptr), swapChain(nullptr) {
     // Create the D3D device.
     hr_check(D3D11CreateDevice(
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
@@ -178,27 +158,21 @@ void D3DContext::reposition(const RECT& position) {
 
 	// A real app might want to compare these dimensions with the current swap chain
     // dimensions and skip all this if they're unchanged.
-    hr_check(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0));
-    /*if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
-        // You have to destroy the device, swapchain, and all resources and
-        // recreate them to recover from this case. The device was hardware reset,
-        // physically removed, or the driver was updated and/or restarted
-        throw std::logic_error("Device recreation not supported yet");
-    }*/
+    checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0));
 
-    DrawTriangle(width, height, device, deviceContext,  swapChain);
+    DrawTriangle(width, height, device, deviceContext, swapChain, contents);
 
 	syncIntelOutput();
 
-	// Discard outstanding queued presents and queue a frame with the new size ASAP.
-    hr_check(swapChain->Present(0, DXGI_PRESENT_RESTART));
+    // Discard outstanding queued presents and queue a frame with the new size ASAP.
+    checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
     //Sleep(500);
     // Wait for a vblank to really make sure our frame with the new size is ready before
     // the window finishes resizing.
     // TODO: Determine why this is necessary at all. Why isn't one Present() enough?
     // TODO: Determine if there's a way to wait for vblank without calling Present().
     // TODO: Determine if DO_NOT_SEQUENCE is safe to use with SWAP_EFFECT_FLIP_DISCARD.
-    hr_check(swapChain->Present(1, DXGI_PRESENT_DO_NOT_SEQUENCE));
+    checkDeviceRemoved(swapChain->Present(1, DXGI_PRESENT_DO_NOT_SEQUENCE));
 }
 
 D3DContext::~D3DContext() {

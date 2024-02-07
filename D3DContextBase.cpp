@@ -1,6 +1,7 @@
 #include "D3DContext.h"
 
 #include <iostream>
+#include <utility>
 
 bool D3DContextBase::checkRECTsIntersect(const RECT& r1, const RECT& r2) {
 	return r1.left < r2.right && r2.left < r1.right &&
@@ -32,7 +33,7 @@ void D3DContextBase::checkDeviceRemoved(HRESULT hr) const {
     }
 }
 
-D3DContextBase::D3DContextBase() : device(nullptr) {
+D3DContextBase::D3DContextBase(std::shared_ptr<GraphicContents> contents) : contents(std::move(contents)), device(nullptr) {
 	// Create the DXGI factory.
 	hr_check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory)));
 
@@ -107,3 +108,4 @@ D3DContextBase::~D3DContextBase() {
     if (intelAdapterOutput != nullptr) { intelAdapterOutput->Release(); }
 	for (IDXGIAdapter* a : adapters) { a->Release(); }
 }
+

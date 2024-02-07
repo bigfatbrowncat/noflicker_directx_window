@@ -18,7 +18,7 @@ add_executable(${EXE_DX11} WIN32
         D3D11Context.cpp
 
         DCompContext.h
-        DCompContext.cpp D3DContextBase.cpp Base.h)
+        DCompContext.cpp D3DContextBase.cpp Base.h GraphicContents.h)
 
 target_compile_definitions(${EXE_DX11} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE_DX11)
 target_compile_features(${EXE_DX11} PUBLIC cxx_std_20)
@@ -41,7 +41,7 @@ add_executable(${EXE_DX12} WIN32
         D3D12Context.cpp
 
         DCompContext.h
-        DCompContext.cpp D3DContextBase.cpp Base.h)
+        DCompContext.cpp D3DContextBase.cpp Base.h GraphicContents.h)
 
 target_compile_definitions(${EXE_DX12} PUBLIC WINVER=0x0602 UNICODE _UNICODE USE_DX12)
 target_compile_features(${EXE_DX12} PUBLIC cxx_std_20)
