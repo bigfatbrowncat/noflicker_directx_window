@@ -31,7 +31,7 @@ struct D3DContextBase : public Base {
 	IDXGIAdapter* intelAdapter = nullptr;
 	IDXGIFactory2* dxgiFactory = nullptr;
 
-	IDXGIOutput* intelAdapterOutput = nullptr;
+	IDXGIOutput* intelAdapterFirstOutput = nullptr;
 	std::vector<IDXGIAdapter*> adapters;
 
 	void checkDeviceRemoved(HRESULT hr) const;

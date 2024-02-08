@@ -78,18 +78,18 @@ RECT D3DContextBase::getFullDisplayRECT() const {
 //
 // This one should be called between the drawing function and the swapChain->Present() call
 void D3DContextBase::lookForIntelOutput(const RECT& position) {
-	if (intelAdapterOutput != nullptr) {
-		intelAdapterOutput->Release();
-		intelAdapterOutput = nullptr;
+	if (intelAdapterFirstOutput != nullptr) {
+		intelAdapterFirstOutput->Release();
+		intelAdapterFirstOutput = nullptr;
 	}
 	if (intelAdapter != nullptr) {
 		IDXGIOutput* output;
 		for (UINT i = 0; intelAdapter->EnumOutputs(i, &output) != DXGI_ERROR_NOT_FOUND; i++) {
 			DXGI_OUTPUT_DESC outputDesc;
 			hr_check(output->GetDesc(&outputDesc));
-			if (checkRECTContainsPoint(outputDesc.DesktopCoordinates, position.left, position.top)) {
-				// If our window intersects this output, we have to wait for the output's VBlank
-				intelAdapterOutput = output;
+			if (outputDesc.Monitor != nullptr) {
+				intelAdapterFirstOutput = output;
+				break;
 			} else {
 				output->Release();
 			}
@@ -98,14 +98,14 @@ void D3DContextBase::lookForIntelOutput(const RECT& position) {
 }
 
 void D3DContextBase::syncIntelOutput() const {
-	if (intelAdapterOutput != nullptr) {
-		hr_check(intelAdapterOutput->WaitForVBlank());
+	if (intelAdapterFirstOutput != nullptr) {
+		hr_check(intelAdapterFirstOutput->WaitForVBlank());
 	}
 }
 
 D3DContextBase::~D3DContextBase() {
 	if (dxgiFactory != nullptr) dxgiFactory->Release();
-    if (intelAdapterOutput != nullptr) { intelAdapterOutput->Release(); }
+    if (intelAdapterFirstOutput != nullptr) { intelAdapterFirstOutput->Release(); }
 	for (IDXGIAdapter* a : adapters) { a->Release(); }
 }
 

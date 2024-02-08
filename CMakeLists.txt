@@ -15,7 +15,7 @@ add_executable(${EXE_DX11} WIN32
         main.cpp
 
         D3DContext.h
-        D3D11Context.cpp
+        D3DContext_DX11.cpp
 
         DCompContext.h
         DCompContext.cpp D3DContextBase.cpp Base.h GraphicContents.h)
@@ -38,7 +38,7 @@ set(EXE_DX12 noflicker_directx12_window)
 add_executable(${EXE_DX12} WIN32
         main.cpp
         D3DContext.h
-        D3D12Context.cpp
+        D3DContext_DX12.cpp
 
         DCompContext.h
         DCompContext.cpp D3DContextBase.cpp Base.h GraphicContents.h)
