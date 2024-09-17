@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 
+#if defined(USE_DX12)
 class TriangleGraphicContents : public GraphicContents {
 private:
     int width = 0, height = 0;
@@ -24,18 +25,43 @@ public:
         // Sleep(100);
     }
 
-    std::vector<Vertex> getVertices() override {
+    std::vector<RGBAVertex> getVertices() override {
         float aspect = (float) width / (float) height;
         float k = 760.f / (float) width;
         float sin60 = sqrtf(3.f) / 2;
-        std::vector<Vertex> vertices = {
-            {0.0f * k,  0.5f * sin60 * aspect * k,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f},
-            {0.5f * k,  -0.5f * sin60 * aspect * k, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},
-            {-0.5f * k, -0.5f * sin60 * aspect * k, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f}
+		float d = 0.3f;
+        std::vector<RGBAVertex> vertices = {
+            {0.0f * k,   0.5f * sin60 * aspect * k, 0.0f,  0.5f, 0.0f, 0.5f},
+            {0.5f * k,  -0.5f * sin60 * aspect * k, 0.0f,  0.5f + d, 1.0f, 0.5f},
+            {-0.5f * k, -0.5f * sin60 * aspect * k, 0.0f,  0.5f - d, 1.0f, 0.5f}
         };
         return vertices;
     }
 
+//	std::string getShader() override {
+//		return {
+//				"Texture2D txDiffuse : register( t0 );\n"
+//				"SamplerState samLinear : register( s0 );\n"
+//				"\n"
+//				"struct VSInput {\n"
+//				"	float4 position : POSITION;\n"
+//				"	float2 Tex  : TEXCOORD0;\n"
+//				"};\n"
+//				"struct PSInput {\n"
+//				"	float4 position : SV_POSITION;\n"
+//				"	float2 Tex  : TEXCOORD0;\n"
+//				"};\n"
+//				"PSInput VSMain(VSInput input) {\n"
+//				"	PSInput output;\n"
+//				"	output.position = input.position;\n"
+//				"	output.Tex = input.Tex;\n"
+//				"	return output;\n"
+//				"}\n"
+//				"float4 PSMain(PSInput input) : SV_TARGET {\n"
+//				"	 return txDiffuse.Sample( samLinear, input.Tex );\n"
+//				"}\n"
+//		};
+//	}
     std::string getShader() override {
         return {
             "struct PSInput {\n"
@@ -54,11 +80,70 @@ public:
         };
     }
 };
+#elif defined(USE_DX11)
+class FullScreenImageGraphicContents : public GraphicContents {
+private:
+	int width = 0, height = 0;
+
+public:
+	void updateLayout(int width, int height) override {
+		this->width = width; this->height = height;
+
+		// Uncomment this fake resizing load here to see how the app handles it
+		// 100ms is a huge time pretty enough to recalculate even a very complicated layout
+		//
+		//Sleep(100);
+	}
+
+	std::vector<TextureVertex> getVertices() override {
+		float aspect = (float) width / (float) height;
+		float k = 1;//760.f / (float) width;
+		//float sin60 = sqrtf(3.f) / 2;
+		std::vector<TextureVertex> vertices = {
+				{-1.0f * k,  1.0f * k,  0.0f,  0.0f, 0.0f},
+				{ 1.0f * k,  1.0f * k,  0.0f,  1.0f, 0.0f},
+				{ 1.0f * k, -1.0f * k,  0.0f,  1.0f, 1.0f},
+
+				{-1.0f * k, -1.0f * k,  0.0f,  0.0f, 1.0f},
+				{ 1.0f * k, -1.0f * k,  0.0f,  1.0f, 1.0f},
+				{-1.0f * k,  1.0f * k,  0.0f,  0.0f, 0.0f},
+		};
+		return vertices;
+	}
+
+	std::string getShader() override {
+		return {
+			"Texture2D txDiffuse : register( t0 );\n"
+			    "SamplerState samLinear : register( s0 );\n"
+				"\n"
+				"struct VSInput {\n"
+				"	float4 position : POSITION;\n"
+				"	float2 Tex  : TEXCOORD0;\n"
+				"};\n"
+				"struct PSInput {\n"
+				"	float4 position : SV_POSITION;\n"
+				"	float2 Tex  : TEXCOORD0;\n"
+				"};\n"
+				"PSInput VSMain(VSInput input) {\n"
+				"	PSInput output;\n"
+				"	output.position = input.position;\n"
+				"	output.Tex = input.Tex;\n"
+				"	return output;\n"
+				"}\n"
+				"float4 PSMain(PSInput input) : SV_TARGET {\n"
+				"	 return txDiffuse.Sample( samLinear, input.Tex );\n"
+				"}\n"
+		};
+	}
+};
+#else
+	#error "You should set either USE_DX11 or USE_DX12"
+#endif
 
 // Global declarations
 std::shared_ptr<D3DContext> context;
 std::shared_ptr<DCompContext> dcompContext;
-std::shared_ptr<TriangleGraphicContents> contents;
+std::shared_ptr<GraphicContents> contents;
 bool exitPending;
 
 // Passthrough (t) if truthy. Crash otherwise.
@@ -110,7 +195,14 @@ LRESULT window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 // The app entry point.
 int WinMain(HINSTANCE hinstance, HINSTANCE, LPSTR, int)
 {
+#if defined(USE_DX12)
     contents = std::make_shared<TriangleGraphicContents>();
+#elif defined(USE_DX11)
+	contents = std::make_shared<FullScreenImageGraphicContents>();
+#else
+	#error "You should set either USE_DX11 or USE_DX12"
+#endif
+
     context = std::make_shared<D3DContext>(contents);
 
     // Register the window class.

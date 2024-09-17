@@ -87,8 +87,14 @@ void D3DContextBase::lookForIntelOutput(const RECT& position) {
 		for (UINT i = 0; intelAdapter->EnumOutputs(i, &output) != DXGI_ERROR_NOT_FOUND; i++) {
 			DXGI_OUTPUT_DESC outputDesc;
 			hr_check(output->GetDesc(&outputDesc));
-			if (outputDesc.Monitor != nullptr) {
+			if (outputDesc.Monitor != nullptr /*&&
+				outputDesc.DesktopCoordinates.left <= position.right &&
+				outputDesc.DesktopCoordinates.top <= position.bottom &&
+				outputDesc.DesktopCoordinates.right >= position.right &&
+				outputDesc.DesktopCoordinates.bottom >= position.bottom*/) {
+
 				intelAdapterFirstOutput = output;
+				//std::cout << i << std::endl;
 				break;
 			} else {
 				output->Release();

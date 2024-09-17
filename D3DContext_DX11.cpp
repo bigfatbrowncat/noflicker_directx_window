@@ -1,10 +1,14 @@
 #include "D3DContext.h"
+#include "DDSTextureLoader.h"
 
 #include "d3dcompiler.h"
 
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <iostream>
+
+using namespace DirectX;
 
 void D3DContext::DrawTriangle(int width, int height,
                    ID3D11Device* device,
@@ -16,12 +20,12 @@ void D3DContext::DrawTriangle(int width, int height,
 
     D3D11_BUFFER_DESC vb_desc;
     ZeroMemory(&vb_desc, sizeof(vb_desc));
-    vb_desc.ByteWidth = (UINT)(vertices.size() * sizeof(Vertex));
+    vb_desc.ByteWidth = (UINT)(vertices.size() * sizeof(TextureVertex));
     vb_desc.Usage = D3D11_USAGE_DEFAULT;
     vb_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vb_desc.CPUAccessFlags = 0;
     vb_desc.MiscFlags = 0;
-    vb_desc.StructureByteStride = sizeof(Vertex);
+    vb_desc.StructureByteStride = sizeof(TextureVertex);
 
     D3D11_SUBRESOURCE_DATA vb_data;
     ZeroMemory(&vb_data, sizeof(vb_data));
@@ -29,7 +33,7 @@ void D3DContext::DrawTriangle(int width, int height,
 
     {
         ID3D11Buffer *vertex_buffer;
-        const UINT stride = sizeof(Vertex);
+        const UINT stride = sizeof(TextureVertex);
         const UINT offset = 0;
         device->CreateBuffer(&vb_desc, &vb_data, &vertex_buffer);
         device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
@@ -44,14 +48,16 @@ void D3DContext::DrawTriangle(int width, int height,
 
                 std::string shader_code = contents->getShader();
 
-                hr_check(D3DCompile2(shader_code.c_str(), shader_code.length(),
+                auto hresult = D3DCompile2(shader_code.c_str(), shader_code.length(),
                                      nullptr,
                                      nullptr, nullptr, "PSMain", "ps_4_0", D3DCOMPILE_DEBUG, 0,
                                      0, nullptr, 0,
-                                     &ps, &ps_error));
+                                     &ps, &ps_error);
 
                 if (ps_error != nullptr) {
-                    throw std::runtime_error("Pixel shader compilation error");
+					std::string err = "Pixel shader compilation error: ";
+					err += reinterpret_cast<const char*>( ps_error->GetBufferPointer());
+					throw std::runtime_error(err);
                 }
 
                 hr_check(device->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, &pixel_shader));
@@ -69,11 +75,13 @@ void D3DContext::DrawTriangle(int width, int height,
 
                 hr_check(device->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, &vertex_shader));
                 device_context->VSSetShader(vertex_shader, nullptr, 0);
+				device_context->PSSetShaderResources( 0, 1, &imageTextureView );
 
                 D3D11_INPUT_ELEMENT_DESC element_desc[] =
                 {
                         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-                        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+						{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                        //{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
                 };
 
                 hr_check(device->CreateInputLayout(element_desc, sizeof(element_desc) / sizeof(D3D11_INPUT_ELEMENT_DESC), vs->GetBufferPointer(), vs->GetBufferSize(), &input_layout));
@@ -86,7 +94,7 @@ void D3DContext::DrawTriangle(int width, int height,
                 if (ps_error != nullptr) ps_error->Release();
             }
 
-            device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);//D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
             {
                 D3D11_VIEWPORT viewport;
@@ -112,9 +120,14 @@ void D3DContext::DrawTriangle(int width, int height,
                 device_context->ClearRenderTargetView(rtv, color);
 
                 device_context->OMSetRenderTargets(1, &rtv, nullptr);
-                device_context->Draw(3, 0);
+                device_context->Draw((UINT)vertices.size(), 0);
 
-                buffer->Release();
+				syncIntelOutput();
+
+				// Discard outstanding queued presents and queue a frame with the new size ASAP.
+				checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
+
+				buffer->Release();
                 rtv->Release();
             }
 
@@ -133,7 +146,7 @@ D3DContext::D3DContext(std::shared_ptr<GraphicContents> contents): D3DContextBas
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             nullptr, 0, D3D11_SDK_VERSION, &device, nullptr, &deviceContext));
 
-    // Create the swap chain.
+	// Create the swap chain.
     DXGI_SWAP_CHAIN_DESC1 scd = {};
     // Just use a minimal size for now. WM_NCCALCSIZE will resize when necessary.
     scd.Width = 1;
@@ -147,6 +160,8 @@ D3DContext::D3DContext(std::shared_ptr<GraphicContents> contents): D3DContextBas
     scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
     hr_check(dxgiFactory->CreateSwapChainForComposition(device, &scd, nullptr, &swapChain));
 
+	hr_check(CreateDDSTextureFromFile( this->device, L"grass.dds", nullptr, &imageTextureView ));
+
 	this->reposition(getFullDisplayRECT());
 }
 
@@ -158,14 +173,10 @@ void D3DContext::reposition(const RECT& position) {
 
 	// A real app might want to compare these dimensions with the current swap chain
     // dimensions and skip all this if they're unchanged.
-    checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0));
+    checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE));
 
     DrawTriangle(width, height, device, deviceContext, swapChain, contents);
 
-	syncIntelOutput();
-
-    // Discard outstanding queued presents and queue a frame with the new size ASAP.
-    checkDeviceRemoved(swapChain->Present(0, DXGI_PRESENT_RESTART));
     //Sleep(500);
     // Wait for a vblank to really make sure our frame with the new size is ready before
     // the window finishes resizing.
@@ -176,6 +187,7 @@ void D3DContext::reposition(const RECT& position) {
 }
 
 D3DContext::~D3DContext() {
+	if (imageTextureView) { imageTextureView->Release(); imageTextureView = nullptr; }
     if (swapChain) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
     if (deviceContext) { deviceContext->Release(); deviceContext = nullptr; }
     if (device) { device->Release(); device = nullptr; }

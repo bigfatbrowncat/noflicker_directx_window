@@ -1,10 +1,13 @@
 #include "D3DContext.h"
+//#include "DDSTextureLoader12.h"
 
 #include <d3dcompiler.h>
 
 #include <vector>
 #include <string>
 #include <iostream>
+
+//using namespace DirectX;
 
 // The debug layer is broken and crashes the app. Don't enable it
 //#ifdef _DEBUG
@@ -32,7 +35,7 @@ void D3DContext::DrawTriangle(int width, int height,
     D3D12_RESOURCE_DESC vb_desc = {
             .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
             .Alignment = 0,
-            .Width = sizeof(Vertex) * vertices.size(),
+            .Width = sizeof(RGBAVertex) * vertices.size(),
             .Height = 1,
             .DepthOrArraySize = 1,
             .MipLevels = 1,
@@ -66,8 +69,8 @@ void D3DContext::DrawTriangle(int width, int height,
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {
             .BufferLocation = drawing_cache->vertex_buffer->GetGPUVirtualAddress(),
-            .SizeInBytes = static_cast<UINT>(sizeof(Vertex) * vertices.size()),
-            .StrideInBytes = sizeof(Vertex)
+            .SizeInBytes = static_cast<UINT>(sizeof(RGBAVertex) * vertices.size()),
+            .StrideInBytes = sizeof(RGBAVertex)
     };
 
     ID3D12RootSignature *rootSignature;
@@ -112,6 +115,7 @@ void D3DContext::DrawTriangle(int width, int height,
         D3D12_INPUT_ELEMENT_DESC vertexFormat[] =
         {
 			{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			//{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 			{"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
         };
 
@@ -246,11 +250,12 @@ void D3DContext::DrawTriangle(int width, int height,
         FLOAT color[] = {0.0f, 0.2f, 0.4f, 1.0f};
         graphics_command_list->ClearRenderTargetView(mainRenderTargetDescriptor,
                                                      color /*clear_color_with_alpha*/, 0, nullptr);
-        graphics_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		graphics_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        //graphics_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);//D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         graphics_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
 
         // Finally drawing the bloody triangle!
-        graphics_command_list->DrawInstanced(3, 1, 0, 0);
+		graphics_command_list->DrawInstanced((UINT)vertices.size(), 1, 0, 0);
 
         barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
         barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
@@ -276,8 +281,8 @@ bool D3DContext::CreateDeviceD3D(/*HWND hWnd*/)
     // Setup swap chain
     DXGI_SWAP_CHAIN_DESC1 scd = {};
     // Just use a minimal size for now. WM_NCCALCSIZE will resize when necessary.
-    scd.Width = 1;
-    scd.Height = 1;
+    scd.Width = 1920;
+    scd.Height = 1080;
     scd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     scd.SampleDesc.Count = 1;
     scd.SampleDesc.Quality = 0;
@@ -390,7 +395,8 @@ bool D3DContext::CreateDeviceD3D(/*HWND hWnd*/)
 void D3DContext::CleanupDeviceD3D()
 {
     CleanupRenderTarget();
-    if (swapChain != nullptr) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
+	if (imageTextureView) { imageTextureView->Release(); imageTextureView = nullptr; }
+	if (swapChain != nullptr) { swapChain->SetFullscreenState(false, nullptr); swapChain->Release(); swapChain = nullptr; }
     if (g_hSwapChainWaitableObject != nullptr) { CloseHandle(g_hSwapChainWaitableObject); }
     for (auto & i : g_frameContext) {
         if (i.CommandAllocator) {
@@ -490,6 +496,18 @@ D3DContext::FrameContext* D3DContext::WaitForNextFrameResources()
 
 D3DContext::D3DContext(std::shared_ptr<GraphicContents> contents): D3DContextBase(contents), swapChain(nullptr), descriptorHeap(nullptr) {
     bool_check(CreateDeviceD3D());
+
+//	hr_check(LoadDDSTextureFromFile( this->device, L"grass.dds", &imageTextureView, ddsData, subresources ));
+//	HRESULT __cdecl LoadDDSTextureFromFile(
+//			_In_ ID3D12Device* d3dDevice,
+//			_In_z_ const wchar_t* szFileName,
+//			_Outptr_ ID3D12Resource** texture,
+//			std::unique_ptr<uint8_t[]>& ddsData,
+//			std::vector<D3D12_SUBRESOURCE_DATA>& subresources,
+//			size_t maxsize = 0,
+//			_Out_opt_ DDS_ALPHA_MODE* alphaMode = nullptr,
+//			_Out_opt_ bool* isCubeMap = nullptr);
+
 	this->reposition(getFullDisplayRECT());
 }
 
@@ -498,9 +516,8 @@ void D3DContext::reposition(const RECT& position) {
 	int height = position.bottom - position.top;
 
 	lookForIntelOutput(position);
-
 	CleanupRenderTarget();
-	checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
+	checkDeviceRemoved(swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE));//0/*DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT*/));
     CreateRenderTarget();
 
     FrameContext* frameCtx = WaitForNextFrameResources();

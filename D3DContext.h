@@ -7,7 +7,7 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #elif defined(USE_DX12)
-#include <d3d12.h>
+#include <directx/d3d12.h>
 #include <dxgi1_4.h>
 #else
 #error "You should set either USE_DX11 or USE_DX12"
@@ -26,7 +26,7 @@ struct D3DContextBase : public Base {
 #else
 #error "You should set either USE_DX11 or USE_DX12"
 #endif
-    std::shared_ptr<GraphicContents> contents;
+	std::shared_ptr<GraphicContents> contents;
 
 	IDXGIAdapter* intelAdapter = nullptr;
 	IDXGIFactory2* dxgiFactory = nullptr;
@@ -59,6 +59,7 @@ struct D3DContext : public D3DContextBase {
 #if defined(USE_DX11)
     ID3D11DeviceContext *deviceContext;
     IDXGISwapChain1 *swapChain;
+	ID3D11ShaderResourceView* imageTextureView = nullptr;
     void DrawTriangle(int width, int height,
                       ID3D11Device* device,
                       ID3D11DeviceContext* device_context,
@@ -90,6 +91,9 @@ struct D3DContext : public D3DContextBase {
     HANDLE                       g_hSwapChainWaitableObject = nullptr;
     ID3D12Resource*              g_mainRenderTargetResource[NUM_BACK_BUFFERS] = {};
     D3D12_CPU_DESCRIPTOR_HANDLE  g_mainRenderTargetDescriptor[NUM_BACK_BUFFERS] = {};
+	ID3D12Resource*              imageTextureView = nullptr;
+	std::unique_ptr<uint8_t[]>   ddsData;
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 
 private:
 	struct DrawingCache {
